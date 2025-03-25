@@ -871,10 +871,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "evm"
-version = "0.1.0"
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1431,6 +1427,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "mandu-evm"
+version = "0.1.0"
+
+[[package]]
+name = "mandu-node"
+version = "0.1.0"
+
+[[package]]
+name = "mandu-rpc"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "hyper",
+ "jsonrpsee",
+ "serde",
+ "tower",
+ "tower-http",
+ "trait-variant",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1818,16 +1835,6 @@ name = "route-recognizer"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
-
-[[package]]
-name = "rpc"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "jsonrpsee",
- "serde",
- "trait-variant",
-]
 
 [[package]]
 name = "ruint"
@@ -2339,6 +2346,20 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "403fa3b783d4b626a8ad51d766ab03cb6d2dbfc46b1c5d4448395e6628dc9697"
+dependencies = [
+ "bitflags",
+ "bytes",
+ "http",
+ "pin-project-lite",
+ "tower-layer",
+ "tower-service",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/evm",
+    "crates/node",
     "crates/rpc",
 ]
 resolver = "2"
@@ -11,3 +12,7 @@ futures = "0.3"
 serde = { version = "1", default-features = false }
 tokio = { version = "1", default-features = false }
 trait-variant = "0.1.2"
+
+mandu-evm = { path = "crates/evm" }
+mandu-node = { path = "crates/node" }
+mandu-rpc = { path = "crates/mandu-rpc" }
