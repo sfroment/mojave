@@ -1,0 +1,10 @@
+[package]
+name = "rpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy = { workspace = true, features = ["json-rpc", "rpc-types", "serde"] }
+jsonrpsee = { version = "0.24", features = ["server"] }
+serde = { workspace = true, features = ["derive"] }
+trait-variant = { workspace = true }
