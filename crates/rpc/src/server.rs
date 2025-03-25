@@ -1,4 +1,5 @@
 use crate::{api::eth::EthAPI, config::RpcConfig, types::*};
+use hyper::Method;
 use jsonrpsee::{
     core::RpcResult,
     server::{Server, ServerHandle},
@@ -11,6 +12,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+use tower_http::cors::{Any, CorsLayer};
 
 pub struct RpcServer<T: EthAPI> {
     _node: PhantomData<T>,
@@ -25,7 +27,15 @@ impl<T: EthAPI> RpcServer<T> {
         let mut rpc_module = RpcModule::new(node);
         Self::register_eth_api(&mut rpc_module)?;
 
+        let cors = CorsLayer::new()
+            .allow_methods([Method::POST])
+            .allow_origin(Any)
+            .allow_headers([hyper::header::CONTENT_TYPE]);
+        let cors_middleware = tower::ServiceBuilder::new().layer(cors);
+
         let server = Server::builder()
+            .set_http_middleware(cors_middleware)
+            // TODO: Get address from [`crate::config::RpcConfig`]
             .build("127.0.0.1:8545")
             .await
             .map_err(RpcServerError::Build)?;
@@ -33,7 +43,10 @@ impl<T: EthAPI> RpcServer<T> {
 
         Ok(RpcServerHandle(Some(server_handle)))
     }
+}
 
+/// EthAPI implementations
+impl<T: EthAPI> RpcServer<T> {
     fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
         rpc_module.register_async_method("eth_blobBaseFee", Self::blob_base_fee)?;
