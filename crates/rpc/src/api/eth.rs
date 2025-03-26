@@ -1,7 +1,7 @@
 use crate::types::*;
 
-#[trait_variant::make(EthAPI: Send)]
-pub trait LocalEthAPI: Clone + Send + Sync + 'static {
+#[trait_variant::make(EthApi: Send)]
+pub trait LocalEthApi: Clone + Send + Sync + 'static {
     type Error: std::error::Error + Send + 'static;
 
     /// Returns a list of addresses owned by client.
