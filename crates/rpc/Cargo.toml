@@ -5,9 +5,12 @@ edition = "2021"
 
 [dependencies]
 alloy = { workspace = true, features = ["json-rpc", "rpc-types", "serde"] }
+futures = { workspace = true }
 jsonrpsee = { version = "0.24", features = ["server"] }
 hyper = "1.6.0"
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true }
 tower = "0.4"
 tower-http = { version = "0.6", features = ["cors"] }
 trait-variant = { workspace = true }

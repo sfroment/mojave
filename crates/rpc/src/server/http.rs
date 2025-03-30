@@ -1,4 +1,4 @@
-use crate::{api::eth::EthApi, config::RpcConfig, types::*};
+use crate::{api::eth::EthApi, config::RpcConfig, error::RpcError, types::*};
 use hyper::Method;
 use jsonrpsee::{
     core::RpcResult,
@@ -6,25 +6,16 @@ use jsonrpsee::{
     types::{ErrorCode, ErrorObjectOwned, Params},
     Extensions, RpcModule,
 };
-use std::{
-    future::Future,
-    marker::PhantomData,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::{marker::PhantomData, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
-pub struct RpcServer<T: EthApi> {
-    _node: PhantomData<T>,
+pub struct HttpServer<T: EthApi> {
+    _backend: PhantomData<T>,
 }
 
-impl<T: EthApi> RpcServer<T> {
-    pub async fn init(
-        self,
-        _config: &RpcConfig,
-        node: T,
-    ) -> Result<RpcServerHandle, RpcServerError> {
-        let mut rpc_module = RpcModule::new(node);
+impl<T: EthApi> HttpServer<T> {
+    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcError> {
+        let mut rpc_module = RpcModule::new(backend);
         Self::register_eth_api(&mut rpc_module)?;
 
         let cors = CorsLayer::new()
@@ -35,19 +26,14 @@ impl<T: EthApi> RpcServer<T> {
 
         let server = Server::builder()
             .set_http_middleware(cors_middleware)
-            // TODO: Get address from [`crate::config::RpcConfig`]
-            .build("127.0.0.1:8545")
+            .build(&config.http_address)
             .await
-            .map_err(RpcServerError::Build)?;
-        let server_handle = server.start(rpc_module);
+            .map_err(RpcError::Build)?;
 
-        Ok(RpcServerHandle(Some(server_handle)))
+        Ok(server.start(rpc_module))
     }
-}
 
-/// EthApi implementations
-impl<T: EthApi> RpcServer<T> {
-    fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
+    fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
         rpc_module.register_async_method("eth_blobBaseFee", Self::blob_base_fee)?;
         rpc_module.register_async_method("eth_blockNumber", Self::block_number)?;
@@ -102,70 +88,73 @@ impl<T: EthApi> RpcServer<T> {
         rpc_module.register_async_method("eth_syncing", Self::syncing)?;
         Ok(())
     }
+}
 
+/// EthApi implementations
+impl<T: EthApi> HttpServer<T> {
     /// Handler for [EthApi::accounts]
     async fn accounts(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Vec<Address>> {
-        context.accounts().await.into_rpc_result()
+        backend.accounts().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::blob_base_fee]
     async fn blob_base_fee(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
-        context.blob_base_fee().await.into_rpc_result()
+        backend.blob_base_fee().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::block_number]
     async fn block_number(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
-        context.block_number().await.into_rpc_result()
+        backend.block_number().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::call]
     async fn call(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Bytes> {
         let parameter = parameter.parse::<EthCall>()?;
-        context.call(parameter).await.into_rpc_result()
+        backend.call(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::chain_id]
     async fn chain_id(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<U64>> {
-        context.chain_id().await.into_rpc_result()
+        backend.chain_id().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::coinbase]
     async fn coinbase(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Address> {
-        context.coinbase().await.into_rpc_result()
+        backend.coinbase().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::create_access_list]
     async fn create_access_list(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<AccessListResult> {
         let parameter = parameter.parse::<EthCreateAccessList>()?;
-        context
+        backend
             .create_access_list(parameter)
             .await
             .into_rpc_result()
@@ -174,60 +163,60 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::estimate_gas]
     async fn estimate_gas(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
         let parameter = parameter.parse::<EthEstimateGas>()?;
-        context.estimate_gas(parameter).await.into_rpc_result()
+        backend.estimate_gas(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::fee_history]
     async fn fee_history(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<FeeHistory> {
         let parameter = parameter.parse::<EthFeeHistory>()?;
-        context.fee_history(parameter).await.into_rpc_result()
+        backend.fee_history(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::gas_price]
     async fn gas_price(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
-        context.gas_price().await.into_rpc_result()
+        backend.gas_price().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_balance]
     async fn get_balance(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
         let parameter = parameter.parse::<EthGetBalance>()?;
-        context.get_balance(parameter).await.into_rpc_result()
+        backend.get_balance(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_block_by_hash]
     async fn get_block_by_hash(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Block>> {
         let parameter = parameter.parse()?;
-        context.get_block_by_hash(parameter).await.into_rpc_result()
+        backend.get_block_by_hash(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_block_by_number]
     async fn get_block_by_number(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Block>> {
         let parameter = parameter.parse()?;
-        context
+        backend
             .get_block_by_number(parameter)
             .await
             .into_rpc_result()
@@ -236,11 +225,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_block_receipts]
     async fn get_block_receipts(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Vec<TransactionReceipt>>> {
         let parameter = parameter.parse::<EthBlockReceipts>()?;
-        context
+        backend
             .get_block_receipts(parameter)
             .await
             .into_rpc_result()
@@ -249,11 +238,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_block_transaction_count_by_hash]
     async fn get_block_transaction_count_by_hash(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<U256>> {
         let parameter = parameter.parse::<EthGetBlockTransactionCountByHash>()?;
-        context
+        backend
             .get_block_transaction_count_by_hash(parameter)
             .await
             .into_rpc_result()
@@ -262,11 +251,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_block_transaction_count_by_number]
     async fn get_block_transaction_count_by_number(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<U256>> {
         let parameter = parameter.parse::<EthGetBlockTransactionCountByNumber>()?;
-        context
+        backend
             .get_block_transaction_count_by_number(parameter)
             .await
             .into_rpc_result()
@@ -275,41 +264,41 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_code]
     async fn get_code(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Bytes> {
         let parameter = parameter.parse::<EthGetCode>()?;
-        context.get_code(parameter).await.into_rpc_result()
+        backend.get_code(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_proof]
     async fn get_proof(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<EIP1186AccountProofResponse> {
         let parameter = parameter.parse::<EthGetProof>()?;
-        context.get_proof(parameter).await.into_rpc_result()
+        backend.get_proof(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_storage_at]
     async fn get_storage_at(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<B256> {
         let parameter = parameter.parse::<EthGetStorageAt>()?;
-        context.get_storage_at(parameter).await.into_rpc_result()
+        backend.get_storage_at(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::get_transaction_by_block_hash_and_index]
     async fn get_transaction_by_block_hash_and_index(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Transaction>> {
         let parameter = parameter.parse::<EthGetTransactionByBlockHashAndIndex>()?;
-        context
+        backend
             .get_transaction_by_block_hash_and_index(parameter)
             .await
             .into_rpc_result()
@@ -318,11 +307,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_transaction_by_block_number_and_index]
     async fn get_transaction_by_block_number_and_index(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Transaction>> {
         let parameter = parameter.parse::<EthGetTransactionByBlockNumberAndIndex>()?;
-        context
+        backend
             .get_transaction_by_block_number_and_index(parameter)
             .await
             .into_rpc_result()
@@ -331,11 +320,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_transaction_by_hash]
     async fn get_transaction_by_hash(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<Transaction>> {
         let parameter = parameter.parse::<EthgetTransactionByHash>()?;
-        context
+        backend
             .get_transaction_by_hash(parameter)
             .await
             .into_rpc_result()
@@ -344,11 +333,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_transaction_count]
     async fn get_transaction_count(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
         let parameter = parameter.parse::<EthGetTransactionCount>()?;
-        context
+        backend
             .get_transaction_count(parameter)
             .await
             .into_rpc_result()
@@ -357,11 +346,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_transaction_receipt]
     async fn get_transaction_receipt(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<TransactionReceipt>> {
         let parameter = parameter.parse::<EthGetTransactionReceipt>()?;
-        context
+        backend
             .get_transaction_receipt(parameter)
             .await
             .into_rpc_result()
@@ -370,11 +359,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_uncle_count_by_block_hash]
     async fn get_uncle_count_by_block_hash(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<U256>> {
         let parameter = parameter.parse::<EthGetUncleCountByBlockHash>()?;
-        context
+        backend
             .get_uncle_count_by_block_hash(parameter)
             .await
             .into_rpc_result()
@@ -383,11 +372,11 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::get_uncle_count_by_block_number]
     async fn get_uncle_count_by_block_number(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Option<U256>> {
         let parameter = parameter.parse::<EthGetUncleCountByBlockNumber>()?;
-        context
+        backend
             .get_uncle_count_by_block_number(parameter)
             .await
             .into_rpc_result()
@@ -396,20 +385,20 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::max_priority_fee_per_gas]
     async fn max_priority_fee_per_gas(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<U256> {
-        context.max_priority_fee_per_gas().await.into_rpc_result()
+        backend.max_priority_fee_per_gas().await.into_rpc_result()
     }
 
     /// Handler for [EthApi::send_raw_transaction]
     async fn send_raw_transaction(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<B256> {
         let parameter = parameter.parse::<EthSendRawTransaction>()?;
-        context
+        backend
             .send_raw_transaction(parameter)
             .await
             .into_rpc_result()
@@ -418,35 +407,35 @@ impl<T: EthApi> RpcServer<T> {
     /// Handler for [EthApi::sign]
     async fn sign(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Bytes> {
         let parameter = parameter.parse::<EthSign>()?;
-        context.sign(parameter).await.into_rpc_result()
+        backend.sign(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::sign_transaction]
     async fn sign_transaction(
         parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Bytes> {
         let parameter = parameter.parse::<EthSignTransaction>()?;
-        context.sign_transaction(parameter).await.into_rpc_result()
+        backend.sign_transaction(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::syncing]
     async fn syncing(
         _parameter: Params<'static>,
-        context: Arc<T>,
+        backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<SyncStatus> {
-        context.syncing().await.into_rpc_result()
+        backend.syncing().await.into_rpc_result()
     }
 }
 
 /// Helper trait to convert [std::result::Result<T, E>] to [RpcResult<T>].
-trait IntoRpcResult<T> {
+pub(crate) trait IntoRpcResult<T> {
     fn into_rpc_result(self) -> RpcResult<T>;
 }
 
@@ -463,35 +452,5 @@ where
                 Some(error.to_string()),
             )),
         }
-    }
-}
-
-pub struct RpcServerHandle(Option<ServerHandle>);
-
-impl Future for RpcServerHandle {
-    type Output = ();
-
-    fn poll(self: std::pin::Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-
-        loop {
-            if let Some(handle) = this.0.take() {
-                match handle.is_stopped() {
-                    true => return Poll::Ready(()),
-                    false => return Poll::Pending,
-                }
-            }
-        }
-    }
-}
-
-pub enum RpcServerError {
-    Build(std::io::Error),
-    RegisterMethod(jsonrpsee::core::RegisterMethodError),
-}
-
-impl From<jsonrpsee::core::RegisterMethodError> for RpcServerError {
-    fn from(value: jsonrpsee::core::RegisterMethodError) -> Self {
-        Self::RegisterMethod(value)
     }
 }

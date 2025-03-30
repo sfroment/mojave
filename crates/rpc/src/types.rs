@@ -2,7 +2,11 @@ pub use alloy::{
     core::primitives::{Address, Bytes, B256, U256, U64},
     rpc::{
         json_rpc::RpcObject,
-        types::{state::StateOverride, *},
+        types::{
+            pubsub::{Params as SubscriptionParams, *},
+            state::StateOverride,
+            *,
+        },
     },
 };
 use serde::{Deserialize, Serialize};

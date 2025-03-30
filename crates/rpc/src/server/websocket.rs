@@ -1,0 +1,106 @@
+use crate::{api::eth_subscription::EthPubSubApi, config::RpcConfig, error::RpcError, types::*};
+use futures::stream::StreamExt;
+use jsonrpsee::{
+    core::SubscriptionResult,
+    server::{Server, ServerHandle},
+    types::Params,
+    Extensions, PendingSubscriptionSink, RpcModule, SubscriptionMessage,
+};
+use std::{marker::PhantomData, sync::Arc};
+
+pub struct WebsocketServer<T: EthPubSubApi> {
+    _backend: PhantomData<T>,
+}
+
+impl<T: EthPubSubApi> WebsocketServer<T> {
+    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcError> {
+        let mut rpc_module = RpcModule::new(backend);
+        rpc_module.register_subscription(
+            "eth_subscribe",
+            "eth_subscription",
+            "eth_unsubscribe",
+            Self::subscribe,
+        )?;
+
+        let server = Server::builder()
+            .build(&config.websocket_address)
+            .await
+            .map_err(RpcError::Build)?;
+
+        Ok(server.start(rpc_module))
+    }
+
+    async fn subscribe(
+        parameter: Params<'static>,
+        pending: PendingSubscriptionSink,
+        backend: Arc<T>,
+        _extensions: Extensions,
+    ) -> SubscriptionResult {
+        let mut parameter = parameter.sequence();
+        let kind = parameter.next::<SubscriptionKind>()?;
+        let subscription_parameter = parameter.optional_next::<SubscriptionParams>()?;
+        match kind {
+            SubscriptionKind::NewHeads => Self::new_heads(pending, backend.clone()).await,
+            SubscriptionKind::Logs => Self::logs(pending, backend.clone()).await,
+            SubscriptionKind::NewPendingTransactions => {
+                Self::new_pending_transactions(pending, backend.clone()).await
+            }
+            SubscriptionKind::Syncing => Self::syncing(pending, backend.clone()).await,
+        }
+    }
+
+    /// Handler for [EthPubSubApi::subscribe_new_heads]
+    async fn new_heads(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        tokio::spawn(async move {
+            let mut stream = backend.subscribe_new_heads();
+            while let Some(Ok(header)) = stream.next().await {
+                let message = SubscriptionMessage::from_json(&header).unwrap();
+                let _ = sink.send(message).await;
+            }
+        });
+        Ok(())
+    }
+
+    /// Handler for [EthPubSubApi::subscribe_logs]
+    async fn logs(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        tokio::spawn(async move {
+            let mut stream = backend.subscribe_logs();
+            while let Some(Ok(logs)) = stream.next().await {
+                let message = SubscriptionMessage::from_json(&logs).unwrap();
+                let _ = sink.send(message).await;
+            }
+        });
+        Ok(())
+    }
+
+    /// Handler for [EthPubSubApi::subscribe_new_pending_transaction]
+    async fn new_pending_transactions(
+        pending: PendingSubscriptionSink,
+        backend: Arc<T>,
+    ) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        tokio::spawn(async move {
+            let mut stream = backend.subscribe_new_pending_transaction();
+            while let Some(Ok(new_pending_transaction)) = stream.next().await {
+                let message = SubscriptionMessage::from_json(&new_pending_transaction).unwrap();
+                let _ = sink.send(message).await;
+            }
+        });
+        Ok(())
+    }
+
+    /// Handler for [EthPubSubApi::subscribe_syncing]
+    async fn syncing(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        tokio::spawn(async move {
+            let mut stream = backend.subscribe_syncing();
+            while let Some(Ok(syncing)) = stream.next().await {
+                let message = SubscriptionMessage::from_json(&syncing).unwrap();
+                let _ = sink.send(message).await;
+            }
+        });
+        Ok(())
+    }
+}
