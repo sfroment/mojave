@@ -1879,9 +1879,12 @@ name = "mandu-rpc"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "futures",
  "hyper 1.6.0",
  "jsonrpsee",
  "serde",
+ "tokio",
+ "tokio-stream",
  "tower",
  "tower-http",
  "trait-variant",
@@ -3267,6 +3270,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

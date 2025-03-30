@@ -12,7 +12,8 @@ alloy = { version = "0.12", default-features = false }
 futures = "0.3"
 serde = { version = "1", default-features = false }
 tokio = { version = "1", default-features = false }
-trait-variant = "0.1.2"
+tokio-stream = "0.1"
+trait-variant = "0.1"
 
 mandu-evm = { path = "crates/evm" }
 mandu-node = { path = "crates/node" }
