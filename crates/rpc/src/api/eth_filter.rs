@@ -1,7 +1,7 @@
 use crate::types::*;
 
 #[trait_variant::make(EthFilterApi: Send)]
-pub trait LocalEthFilterApi {
+pub trait LocalEthFilterApi: Clone + Send + Sync + 'static {
     type Error;
 
     /// Returns all filter changes since last poll.
