@@ -38,14 +38,14 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
     ) -> SubscriptionResult {
         let mut parameter = parameter.sequence();
         let kind = parameter.next::<SubscriptionKind>()?;
-        let subscription_parameter = parameter.optional_next::<SubscriptionParams>()?;
+        let log_parameter = parameter.optional_next::<SubscriptionParams>()?;
         match kind {
             SubscriptionKind::NewHeads => Self::new_heads(pending, backend.clone()).await,
-            SubscriptionKind::Logs => Self::logs(pending, backend.clone()).await,
+            SubscriptionKind::Logs => Self::logs(pending, backend.clone(), log_parameter).await,
             SubscriptionKind::NewPendingTransactions => {
                 Self::new_pending_transactions(pending, backend.clone()).await
             }
-            SubscriptionKind::Syncing => Self::syncing(pending, backend.clone()).await,
+            SubscriptionKind::Syncing => return Err(SubscriptionError::Unsupported.into()),
         }
     }
 
@@ -56,20 +56,35 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
             let mut stream = backend.subscribe_new_heads();
             while let Some(Ok(header)) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&header).unwrap();
-                let _ = sink.send(message).await;
+                if sink.send(message).await.is_err() {
+                    break;
+                }
             }
         });
         Ok(())
     }
 
     /// Handler for [EthPubSubApi::subscribe_logs]
-    async fn logs(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
+    async fn logs(
+        pending: PendingSubscriptionSink,
+        backend: Arc<T>,
+        parameter: Option<SubscriptionParams>,
+    ) -> SubscriptionResult {
         let sink = pending.accept().await?;
+
+        let filter = if let Some(SubscriptionParams::Logs(filter)) = parameter {
+            Some(filter)
+        } else {
+            None
+        };
+
         tokio::spawn(async move {
-            let mut stream = backend.subscribe_logs();
+            let mut stream = backend.subscribe_logs(filter);
             while let Some(Ok(logs)) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&logs).unwrap();
-                let _ = sink.send(message).await;
+                if sink.send(message).await.is_err() {
+                    break;
+                }
             }
         });
         Ok(())
@@ -85,22 +100,25 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
             let mut stream = backend.subscribe_new_pending_transaction();
             while let Some(Ok(new_pending_transaction)) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&new_pending_transaction).unwrap();
-                let _ = sink.send(message).await;
+                if sink.send(message).await.is_err() {
+                    break;
+                }
             }
         });
         Ok(())
     }
+}
 
-    /// Handler for [EthPubSubApi::subscribe_syncing]
-    async fn syncing(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
-        let sink = pending.accept().await?;
-        tokio::spawn(async move {
-            let mut stream = backend.subscribe_syncing();
-            while let Some(Ok(syncing)) = stream.next().await {
-                let message = SubscriptionMessage::from_json(&syncing).unwrap();
-                let _ = sink.send(message).await;
-            }
-        });
-        Ok(())
+pub enum SubscriptionError {
+    Unsupported,
+    InvalidParameter,
+}
+
+impl std::fmt::Display for SubscriptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unsupported => write!(f, "Unsupported subscription kind"),
+            Self::InvalidParameter => write!(f, "Invalid parameter"),
+        }
     }
 }

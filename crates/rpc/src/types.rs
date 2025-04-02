@@ -146,3 +146,5 @@ pub struct EthSign {
 pub struct EthSignTransaction {
     pub transaction: TransactionRequest,
 }
+
+pub type TransactionHash = B256;
