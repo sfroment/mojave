@@ -17,4 +17,4 @@ trait-variant = "0.1"
 
 mandu-evm = { path = "crates/evm" }
 mandu-node = { path = "crates/node" }
-mandu-rpc = { path = "crates/mandu-rpc" }
+mandu-rpc = { path = "crates/rpc" }
