@@ -3,4 +3,12 @@ name = "mandu-node"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "mandu-node"
+path = "src/bin/main.rs"
+
 [dependencies]
+futures = { workspace = true }
+mandu-rpc = { workspace = true }
+revm = { git = "https://github.com/bluealloy/revm", tag = "v66" }
+tokio = { workspace = true, features = ["full"] }
