@@ -1,4 +1,4 @@
-use crate::{api::eth_subscription::EthPubSubApi, config::RpcConfig, error::RpcError, types::*};
+use crate::{api::eth_pubsub::EthPubSubApi, config::RpcConfig, error::RpcError, types::*};
 use futures::stream::StreamExt;
 use jsonrpsee::{
     core::SubscriptionResult,

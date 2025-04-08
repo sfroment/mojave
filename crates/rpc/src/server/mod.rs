@@ -2,7 +2,7 @@ pub mod http;
 pub mod websocket;
 
 use crate::{
-    api::{eth::EthApi, eth_filter::EthFilterApi, eth_subscription::EthPubSubApi},
+    api::{eth::EthApi, eth_filter::EthFilterApi, eth_pubsub::EthPubSubApi},
     config::RpcConfig,
     error::RpcError,
 };
