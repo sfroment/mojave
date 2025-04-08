@@ -1,4 +1,9 @@
-use crate::{api::eth::EthApi, config::RpcConfig, error::RpcError, types::*};
+use crate::{
+    api::{eth::EthApi, eth_filter::EthFilterApi},
+    config::RpcConfig,
+    error::RpcError,
+    types::*,
+};
 use hyper::Method;
 use jsonrpsee::{
     core::RpcResult,
@@ -9,14 +14,21 @@ use jsonrpsee::{
 use std::{marker::PhantomData, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
-pub struct HttpServer<T: EthApi> {
+pub struct HttpServer<T>
+where
+    T: EthApi + EthFilterApi,
+{
     _backend: PhantomData<T>,
 }
 
-impl<T: EthApi> HttpServer<T> {
+impl<T> HttpServer<T>
+where
+    T: EthApi + EthFilterApi,
+{
     pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcError> {
         let mut rpc_module = RpcModule::new(backend);
         Self::register_eth_api(&mut rpc_module)?;
+        Self::register_eth_filter_api(&mut rpc_module)?;
 
         let cors = CorsLayer::new()
             .allow_methods([Method::POST])
@@ -32,7 +44,13 @@ impl<T: EthApi> HttpServer<T> {
 
         Ok(server.start(rpc_module))
     }
+}
 
+/// EthApi implementations
+impl<T> HttpServer<T>
+where
+    T: EthApi + EthFilterApi,
+{
     fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
         rpc_module.register_async_method("eth_blobBaseFee", Self::blob_base_fee)?;
@@ -88,10 +106,7 @@ impl<T: EthApi> HttpServer<T> {
         rpc_module.register_async_method("eth_syncing", Self::syncing)?;
         Ok(())
     }
-}
 
-/// EthApi implementations
-impl<T: EthApi> HttpServer<T> {
     /// Handler for [EthApi::accounts]
     async fn accounts(
         _parameter: Params<'static>,
@@ -431,6 +446,94 @@ impl<T: EthApi> HttpServer<T> {
         _extension: Extensions,
     ) -> RpcResult<SyncStatus> {
         backend.syncing().await.into_rpc_result()
+    }
+}
+
+/// EthFilter implementations
+impl<T> HttpServer<T>
+where
+    T: EthApi + EthFilterApi,
+{
+    fn register_eth_filter_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcError> {
+        rpc_module.register_async_method("eth_getFilterChanges", Self::get_filter_changes)?;
+        rpc_module.register_async_method("eth_getFilterLogs", Self::get_filter_logs)?;
+        rpc_module.register_async_method("eth_getLogs", Self::get_logs)?;
+        rpc_module.register_async_method("eth_newBlockFilter", Self::new_block_filter)?;
+        rpc_module.register_async_method("eth_newFilter", Self::new_filter)?;
+        rpc_module.register_async_method(
+            "eth_newPendingTransactionFilter",
+            Self::new_pending_transaction_filter,
+        )?;
+        rpc_module.register_async_method("eth_uninstallFilter", Self::uninstall_filter)?;
+        Ok(())
+    }
+
+    async fn get_filter_changes(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<FilterChanges> {
+        let parameter = parameter.parse::<FilterId>()?;
+        backend
+            .get_filter_changes(parameter)
+            .await
+            .into_rpc_result()
+    }
+
+    async fn get_filter_logs(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<Vec<Log>> {
+        let parameter = parameter.parse::<FilterId>()?;
+        backend.get_filter_logs(parameter).await.into_rpc_result()
+    }
+
+    async fn get_logs(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<Vec<Log>> {
+        let parameter = parameter.parse::<Filter>()?;
+        backend.get_logs(parameter).await.into_rpc_result()
+    }
+
+    async fn new_block_filter(
+        _parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<FilterId> {
+        backend.new_block_filter().await.into_rpc_result()
+    }
+
+    async fn new_filter(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<FilterId> {
+        let parameter = parameter.parse::<Filter>()?;
+        backend.new_filter(parameter).await.into_rpc_result()
+    }
+
+    async fn new_pending_transaction_filter(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<FilterId> {
+        let parameter = parameter.parse::<Option<PendingTransactionFilterKind>>()?;
+        backend
+            .new_pending_transaction_filter(parameter)
+            .await
+            .into_rpc_result()
+    }
+
+    async fn uninstall_filter(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<bool> {
+        let parameter = parameter.parse::<FilterId>()?;
+        backend.uninstall_filter(parameter).await.into_rpc_result()
     }
 }
 
