@@ -1,3 +1,6 @@
-pub mod api;
+pub mod api {
+    pub use tendermint_abci::Application as AbciApi;
+}
 pub mod client;
-pub mod cometbft;
+pub mod server;
+pub mod types;
