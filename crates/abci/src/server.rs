@@ -5,6 +5,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
+    thread::{self, JoinHandle as ThreadJoinHandle},
 };
 use tendermint_abci::ServerBuilder;
 use tokio::{process::Command, task::JoinHandle};
@@ -54,17 +55,15 @@ where
         let server = ServerBuilder::new(buffer_size)
             .bind(address.as_ref(), backend)
             .map_err(AbciServerError::Build)?;
-        let server_handle = tokio::spawn(async move {
-            match server.listen() {
-                Ok(()) => return AbciServerError::Server(None),
-                Err(error) => return AbciServerError::Server(Some(error)),
-            }
+        let server_handle = thread::spawn(move || match server.listen() {
+            Ok(()) => return AbciServerError::Server(None),
+            Err(error) => return AbciServerError::Server(Some(error)),
         });
 
         let cometbft_node_handle = Self::start_cometbft_node(home_directory, address);
 
         let abci_server_handle = AbciServerHandle {
-            server: server_handle,
+            server: Some(server_handle),
             cometbft_node: cometbft_node_handle,
         };
         Ok(abci_server_handle)
@@ -72,7 +71,7 @@ where
 }
 
 pub struct AbciServerHandle {
-    server: JoinHandle<AbciServerError>,
+    server: Option<ThreadJoinHandle<AbciServerError>>,
     cometbft_node: JoinHandle<AbciServerError>,
 }
 
@@ -82,26 +81,26 @@ impl Future for AbciServerHandle {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
-        match this.server.poll_unpin(cx) {
-            Poll::Pending => {}
-            Poll::Ready(value) => {
-                this.cometbft_node.abort();
-                match value {
+        if let Some(server_handle) = this.server.take() {
+            match server_handle.is_finished() {
+                false => {}
+                true => match server_handle.join() {
                     Ok(value) => return Poll::Ready(value),
-                    Err(error) => return Poll::Ready(AbciServerError::Join(error)),
-                }
+                    Err(_error) => return Poll::Ready(AbciServerError::JoinServer),
+                },
             }
+
+            this.server.replace(server_handle);
+        } else {
+            return Poll::Ready(AbciServerError::MissingServerHandle);
         }
 
         match this.cometbft_node.poll_unpin(cx) {
             Poll::Pending => {}
-            Poll::Ready(value) => {
-                this.server.abort();
-                match value {
-                    Ok(value) => return Poll::Ready(value),
-                    Err(error) => return Poll::Ready(AbciServerError::Join(error)),
-                }
-            }
+            Poll::Ready(value) => match value {
+                Ok(value) => return Poll::Ready(value),
+                Err(error) => return Poll::Ready(AbciServerError::JoinCometBftNode(error)),
+            },
         }
 
         Poll::Pending
@@ -112,7 +111,9 @@ pub enum AbciServerError {
     Build(tendermint_abci::Error),
     Server(Option<tendermint_abci::Error>),
     CometBft(String),
-    Join(tokio::task::JoinError),
+    JoinServer,
+    JoinCometBftNode(tokio::task::JoinError),
+    MissingServerHandle,
 }
 
 impl std::fmt::Debug for AbciServerError {
@@ -124,7 +125,9 @@ impl std::fmt::Debug for AbciServerError {
                 None => write!(f, "ABCI server stopped"),
             },
             Self::CometBft(error) => write!(f, "CometBFT node stopped with an error: {}", error),
-            Self::Join(error) => write!(f, "{}", error),
+            Self::JoinServer => write!(f, "Failed to join ABCI server"),
+            Self::JoinCometBftNode(error) => write!(f, "Failed to join CometBFT node: {}", error),
+            Self::MissingServerHandle => write!(f, "ABCI server handle returned None"),
         }
     }
 }
