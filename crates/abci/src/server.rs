@@ -3,6 +3,7 @@ use futures::FutureExt;
 use std::{
     future::Future,
     marker::PhantomData,
+    pin::Pin,
     task::{Context, Poll},
 };
 use tendermint_abci::ServerBuilder;
@@ -78,7 +79,7 @@ pub struct AbciServerHandle {
 impl Future for AbciServerHandle {
     type Output = AbciServerError;
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
         match this.server.poll_unpin(cx) {
