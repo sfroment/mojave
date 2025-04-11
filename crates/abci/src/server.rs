@@ -29,7 +29,7 @@ where
             "start",
             "--home",
             home_directory.as_ref(),
-            "--proxy-app",
+            "--proxy_app",
             proxy_app_address.as_ref(),
         ]);
 
