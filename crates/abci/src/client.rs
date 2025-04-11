@@ -1,5 +1,4 @@
 use std::str::FromStr;
-
 use tendermint_rpc::{
     client::{Client, CompatMode, HttpClient},
     endpoint::broadcast::tx_sync::Response,
@@ -23,19 +22,19 @@ impl AbciClient {
         Ok(Self { client })
     }
 
-    pub async fn sync_transaction(
+    pub async fn broadcast_transaction(
         &self,
         transaction: Vec<u8>,
     ) -> Result<Response, AbciClientError> {
         self.client
             .broadcast_tx_sync(transaction)
             .await
-            .map_err(AbciClientError::SyncTransaction)
+            .map_err(AbciClientError::BroadcastTransaction)
     }
 }
 
 pub enum AbciClientError {
     InvalidURL(tendermint_rpc::Error),
     Build(tendermint_rpc::Error),
-    SyncTransaction(tendermint_rpc::Error),
+    BroadcastTransaction(tendermint_rpc::Error),
 }

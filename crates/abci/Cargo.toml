@@ -11,4 +11,4 @@ tendermint = "0.40"
 tendermint-abci = "0.40"
 tendermint-rpc = { version = "0.40", features = ["http-client", "websocket-client"] }
 tendermint-proto = "0.40"
-tokio = { workspace = true, features = ["process"] }
+tokio = { workspace = true, features = ["full"] }
