@@ -3,12 +3,10 @@ use futures::FutureExt;
 use std::{
     future::Future,
     marker::PhantomData,
-    pin::Pin,
-    process::{Child, Command, Output},
     task::{Context, Poll},
 };
 use tendermint_abci::ServerBuilder;
-use tokio::task::JoinHandle;
+use tokio::{process::Command, task::JoinHandle};
 
 pub struct AbciServer<T>
 where
@@ -21,10 +19,10 @@ impl<T> AbciServer<T>
 where
     T: AbciApi,
 {
-    fn start_cometbft_node(
+    pub fn start_cometbft_node(
         home_directory: impl AsRef<str>,
         proxy_app_address: impl AsRef<str>,
-    ) -> Result<Child, AbciServerError> {
+    ) -> JoinHandle<AbciServerError> {
         let mut cometbft_node = Command::new("cometbft");
         cometbft_node.args([
             "start",
@@ -33,8 +31,17 @@ where
             "--proxy-app",
             proxy_app_address.as_ref(),
         ]);
-        let handle = cometbft_node.spawn().map_err(AbciServerError::CometBft)?;
-        Ok(handle)
+
+        let handle = tokio::spawn(async move {
+            match cometbft_node.kill_on_drop(true).spawn() {
+                Ok(mut handle) => match handle.wait().await {
+                    Ok(status) => return AbciServerError::CometBft(status.to_string()),
+                    Err(error) => return AbciServerError::CometBft(error.to_string()),
+                },
+                Err(error) => return AbciServerError::CometBft(error.to_string()),
+            }
+        });
+        handle
     }
 
     pub fn init(
@@ -46,53 +53,52 @@ where
         let server = ServerBuilder::new(buffer_size)
             .bind(address.as_ref(), backend)
             .map_err(AbciServerError::Build)?;
-        let server_handle =
-            tokio::spawn(async move { server.listen().map_err(AbciServerError::Server) });
-
-        let cometbft_node = Self::start_cometbft_node(home_directory, address)?;
-        let cometbft_node_handle = tokio::spawn(async move {
-            cometbft_node
-                .wait_with_output()
-                .map_err(AbciServerError::CometBft)
+        let server_handle = tokio::spawn(async move {
+            match server.listen() {
+                Ok(()) => return AbciServerError::Server(None),
+                Err(error) => return AbciServerError::Server(Some(error)),
+            }
         });
-        Ok(AbciServerHandle {
+
+        let cometbft_node_handle = Self::start_cometbft_node(home_directory, address);
+
+        let abci_server_handle = AbciServerHandle {
             server: server_handle,
             cometbft_node: cometbft_node_handle,
-        })
+        };
+        Ok(abci_server_handle)
     }
 }
 
 pub struct AbciServerHandle {
-    server: JoinHandle<Result<(), AbciServerError>>,
-    cometbft_node: JoinHandle<Result<Output, AbciServerError>>,
+    server: JoinHandle<AbciServerError>,
+    cometbft_node: JoinHandle<AbciServerError>,
 }
 
 impl Future for AbciServerHandle {
-    type Output = AbciServerStatus;
+    type Output = AbciServerError;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
-
-        match this.server.poll_unpin(cx) {
-            Poll::Pending => {}
-            Poll::Ready(value) => {
-                this.server.abort();
-                match value {
-                    Ok(Ok(())) => return Poll::Ready(AbciServerStatus(None)),
-                    Ok(Err(error)) => return Poll::Ready(AbciServerStatus(Some(error))),
-                    Err(error) => return Poll::Ready(AbciServerStatus(Some(error.into()))),
-                }
-            }
-        }
 
         match this.server.poll_unpin(cx) {
             Poll::Pending => {}
             Poll::Ready(value) => {
                 this.cometbft_node.abort();
                 match value {
-                    Ok(Ok(())) => return Poll::Ready(AbciServerStatus(None)),
-                    Ok(Err(error)) => return Poll::Ready(AbciServerStatus(Some(error))),
-                    Err(error) => return Poll::Ready(AbciServerStatus(Some(error.into()))),
+                    Ok(value) => return Poll::Ready(value),
+                    Err(error) => return Poll::Ready(AbciServerError::Join(error)),
+                }
+            }
+        }
+
+        match this.cometbft_node.poll_unpin(cx) {
+            Poll::Pending => {}
+            Poll::Ready(value) => {
+                this.server.abort();
+                match value {
+                    Ok(value) => return Poll::Ready(value),
+                    Err(error) => return Poll::Ready(AbciServerError::Join(error)),
                 }
             }
         }
@@ -101,12 +107,25 @@ impl Future for AbciServerHandle {
     }
 }
 
-#[derive(Debug)]
 pub enum AbciServerError {
     Build(tendermint_abci::Error),
-    Server(tendermint_abci::Error),
-    CometBft(std::io::Error),
+    Server(Option<tendermint_abci::Error>),
+    CometBft(String),
     Join(tokio::task::JoinError),
+}
+
+impl std::fmt::Debug for AbciServerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Build(error) => write!(f, "Failed to build ABCI server: {}", error),
+            Self::Server(error) => match error {
+                Some(error) => write!(f, "ABCI server stopped with an error: {}", error),
+                None => write!(f, "ABCI server stopped"),
+            },
+            Self::CometBft(error) => write!(f, "CometBFT node stopped with an error: {}", error),
+            Self::Join(error) => write!(f, "{}", error),
+        }
+    }
 }
 
 impl std::fmt::Display for AbciServerError {
@@ -116,20 +135,3 @@ impl std::fmt::Display for AbciServerError {
 }
 
 impl std::error::Error for AbciServerError {}
-
-impl From<tokio::task::JoinError> for AbciServerError {
-    fn from(value: tokio::task::JoinError) -> Self {
-        Self::Join(value)
-    }
-}
-
-pub struct AbciServerStatus(Option<AbciServerError>);
-
-impl std::fmt::Debug for AbciServerStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            None => write!(f, "ABCI server stopped"),
-            Some(error) => write!(f, "ABCI server stopped with an error: {}", error),
-        }
-    }
-}
