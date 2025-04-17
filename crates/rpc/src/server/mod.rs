@@ -4,7 +4,7 @@ pub mod websocket;
 use crate::{
     api::{eth::EthApi, eth_filter::EthFilterApi, eth_pubsub::EthPubSubApi},
     config::RpcConfig,
-    error::RpcError,
+    error::RpcServerError,
 };
 use http::HttpServer;
 use jsonrpsee::server::ServerHandle;
@@ -27,7 +27,7 @@ impl<T> RpcServer<T>
 where
     T: EthApi + EthFilterApi + EthPubSubApi,
 {
-    pub async fn init(config: &RpcConfig, backend: T) -> Result<RpcServerHandle, RpcError> {
+    pub async fn init(config: &RpcConfig, backend: T) -> Result<RpcServerHandle, RpcServerError> {
         let http_server_handle = HttpServer::init(config, backend.clone()).await?;
         let websocket_server_handle = WebsocketServer::init(config, backend).await?;
         Ok(RpcServerHandle {
@@ -43,19 +43,19 @@ pub struct RpcServerHandle {
 }
 
 impl Future for RpcServerHandle {
-    type Output = RpcError;
+    type Output = RpcServerError;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
         if this.http_server_handle.is_stopped() {
             let _ = this.websocket_server_handle.stop();
-            return Poll::Ready(RpcError::RpcServerStopped);
+            return Poll::Ready(RpcServerError::RpcServerStopped);
         }
 
         if this.websocket_server_handle.is_stopped() {
             let _ = this.http_server_handle.stop();
-            return Poll::Ready(RpcError::WebsocketServerStopped);
+            return Poll::Ready(RpcServerError::WebsocketServerStopped);
         }
 
         Poll::Pending

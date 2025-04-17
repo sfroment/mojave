@@ -1,7 +1,7 @@
 use crate::{
     api::{eth::EthApi, eth_filter::EthFilterApi},
     config::RpcConfig,
-    error::RpcError,
+    error::RpcServerError,
     types::*,
 };
 use hyper::Method;
@@ -25,7 +25,7 @@ impl<T> HttpServer<T>
 where
     T: EthApi + EthFilterApi,
 {
-    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcError> {
+    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcServerError> {
         let mut rpc_module = RpcModule::new(backend);
         Self::register_eth_api(&mut rpc_module)?;
         Self::register_eth_filter_api(&mut rpc_module)?;
@@ -40,7 +40,7 @@ where
             .set_http_middleware(cors_middleware)
             .build(&config.rpc_address)
             .await
-            .map_err(RpcError::Build)?;
+            .map_err(RpcServerError::Build)?;
 
         Ok(server.start(rpc_module))
     }
@@ -51,7 +51,7 @@ impl<T> HttpServer<T>
 where
     T: EthApi + EthFilterApi,
 {
-    fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcError> {
+    fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
         rpc_module.register_async_method("eth_blobBaseFee", Self::blob_base_fee)?;
         rpc_module.register_async_method("eth_blockNumber", Self::block_number)?;
@@ -454,7 +454,7 @@ impl<T> HttpServer<T>
 where
     T: EthApi + EthFilterApi,
 {
-    fn register_eth_filter_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcError> {
+    fn register_eth_filter_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_getFilterChanges", Self::get_filter_changes)?;
         rpc_module.register_async_method("eth_getFilterLogs", Self::get_filter_logs)?;
         rpc_module.register_async_method("eth_getLogs", Self::get_logs)?;

@@ -1,4 +1,4 @@
-use crate::{api::eth_pubsub::EthPubSubApi, config::RpcConfig, error::RpcError, types::*};
+use crate::{api::eth_pubsub::EthPubSubApi, config::RpcConfig, error::RpcServerError, types::*};
 use futures::stream::StreamExt;
 use jsonrpsee::{
     core::SubscriptionResult,
@@ -13,7 +13,7 @@ pub struct WebsocketServer<T: EthPubSubApi> {
 }
 
 impl<T: EthPubSubApi> WebsocketServer<T> {
-    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcError> {
+    pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcServerError> {
         let mut rpc_module = RpcModule::new(backend);
         rpc_module.register_subscription(
             "eth_subscribe",
@@ -25,7 +25,7 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
         let server = Server::builder()
             .build(&config.websocket_address)
             .await
-            .map_err(RpcError::Build)?;
+            .map_err(RpcServerError::Build)?;
 
         Ok(server.start(rpc_module))
     }
