@@ -38,7 +38,7 @@ where
 
         let server = Server::builder()
             .set_http_middleware(cors_middleware)
-            .build(&config.http_address)
+            .build(&config.rpc_address)
             .await
             .map_err(RpcError::Build)?;
 

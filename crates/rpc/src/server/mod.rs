@@ -43,35 +43,21 @@ pub struct RpcServerHandle {
 }
 
 impl Future for RpcServerHandle {
-    type Output = RpcServerStatus;
+    type Output = RpcError;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
         if this.http_server_handle.is_stopped() {
             let _ = this.websocket_server_handle.stop();
-            return Poll::Ready(RpcServerStatus::HttpStopped);
+            return Poll::Ready(RpcError::RpcServerStopped);
         }
 
         if this.websocket_server_handle.is_stopped() {
             let _ = this.http_server_handle.stop();
-            return Poll::Ready(RpcServerStatus::WebsocketStopped);
+            return Poll::Ready(RpcError::WebsocketServerStopped);
         }
 
         Poll::Pending
-    }
-}
-
-pub enum RpcServerStatus {
-    HttpStopped,
-    WebsocketStopped,
-}
-
-impl std::fmt::Debug for RpcServerStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::HttpStopped => write!(f, "RPC(HTTP) server stopped"),
-            Self::WebsocketStopped => write!(f, "RPC(Websocket) server stopped"),
-        }
     }
 }
