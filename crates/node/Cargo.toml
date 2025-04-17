@@ -8,7 +8,12 @@ name = "mandu-node"
 path = "src/bin/main.rs"
 
 [dependencies]
+alloy = { workspace = true, features = ["consensus", "eips", "k256", "network", "rlp"] }
+bytes = "1.9"
 futures = { workspace = true }
+mandu-abci = { workspace = true }
 mandu-rpc = { workspace = true }
 revm = { git = "https://github.com/bluealloy/revm", tag = "v66" }
+serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
+tokio-stream = "0.1"

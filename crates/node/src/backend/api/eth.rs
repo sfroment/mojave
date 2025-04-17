@@ -1,4 +1,5 @@
-use crate::backend::{error::BackendError, Backend};
+use crate::backend::{error::BackendError, transaction::TypedTransaction, Backend};
+use alloy::eips::Decodable2718;
 use mandu_rpc::{api::eth::EthApi, types::*};
 
 impl EthApi for Backend {
@@ -207,6 +208,15 @@ impl EthApi for Backend {
         &self,
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error> {
+        let mut data = parameter.bytes.as_ref();
+
+        if data.is_empty() {
+            return Err(BackendError::EmptyRawTransaction);
+        }
+
+        let transaction = TypedTransaction::decode_2718(&mut data)
+            .map_err(|_| BackendError::DecodeTransaction)?;
+
         Err(BackendError::Unimplemented)
     }
 
