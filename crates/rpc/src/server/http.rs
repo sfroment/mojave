@@ -67,7 +67,7 @@ where
         rpc_module.register_async_method("eth_getBlockByNumber", Self::get_block_by_number)?;
         rpc_module.register_async_method("eth_getBlockReceipts", Self::get_block_receipts)?;
         rpc_module.register_async_method(
-            "eth_getBlockTransactionCountByNumber",
+            "eth_getBlockTransactionCountByHash",
             Self::get_block_transaction_count_by_hash,
         )?;
         rpc_module.register_async_method(
