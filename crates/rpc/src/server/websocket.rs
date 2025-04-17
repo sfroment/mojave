@@ -54,12 +54,14 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
         let sink = pending.accept().await?;
         tokio::spawn(async move {
             let mut stream = backend.subscribe_new_heads();
-            while let Some(Ok(header)) = stream.next().await {
+            while let Some(header) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&header).unwrap();
                 if sink.send(message).await.is_err() {
                     break;
                 }
             }
+
+            sink.closed().await;
         });
         Ok(())
     }
@@ -80,12 +82,14 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
 
         tokio::spawn(async move {
             let mut stream = backend.subscribe_logs(filter);
-            while let Some(Ok(logs)) = stream.next().await {
+            while let Some(logs) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&logs).unwrap();
                 if sink.send(message).await.is_err() {
                     break;
                 }
             }
+
+            sink.closed().await;
         });
         Ok(())
     }
@@ -98,12 +102,14 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
         let sink = pending.accept().await?;
         tokio::spawn(async move {
             let mut stream = backend.subscribe_new_pending_transaction();
-            while let Some(Ok(new_pending_transaction)) = stream.next().await {
+            while let Some(new_pending_transaction) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&new_pending_transaction).unwrap();
                 if sink.send(message).await.is_err() {
                     break;
                 }
             }
+
+            sink.closed().await;
         });
         Ok(())
     }
