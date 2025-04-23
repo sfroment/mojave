@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy = { workspace = true, features = ["json-rpc", "rpc-types", "serde"] }
 futures = { workspace = true }
 jsonrpsee = { version = "0.24", features = ["server"] }
 hyper = "1.6.0"
+mandu-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true }

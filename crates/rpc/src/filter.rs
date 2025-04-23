@@ -1,4 +1,4 @@
-use crate::types::*;
+use mandu_types::rpc::FilterId;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 

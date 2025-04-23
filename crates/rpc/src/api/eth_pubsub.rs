@@ -1,5 +1,5 @@
-use crate::types::*;
 use futures::stream::Stream;
+use mandu_types::rpc::{Filter, Header, Log, TransactionHash};
 
 #[trait_variant::make(EthPubSubApi: Send)]
 pub trait LocalEthPubSubApi: Clone + Send + Sync + 'static {

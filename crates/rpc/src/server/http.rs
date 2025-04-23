@@ -2,7 +2,6 @@ use crate::{
     api::{eth::EthApi, eth_filter::EthFilterApi},
     config::RpcConfig,
     error::RpcServerError,
-    types::*,
 };
 use hyper::Method;
 use jsonrpsee::{
@@ -10,6 +9,10 @@ use jsonrpsee::{
     server::{Server, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned, Params},
     Extensions, RpcModule,
+};
+use mandu_types::{
+    primitives::{Address, Bytes, B256, U256, U64},
+    rpc::*,
 };
 use std::{marker::PhantomData, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};

@@ -1,4 +1,4 @@
-use crate::types::*;
+use mandu_types::rpc::{Filter, FilterChanges, FilterId, Log, PendingTransactionFilterKind};
 
 #[trait_variant::make(EthFilterApi: Send)]
 pub trait LocalEthFilterApi: Clone + Send + Sync + 'static {

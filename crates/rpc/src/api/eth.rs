@@ -1,4 +1,7 @@
-use crate::types::*;
+use mandu_types::{
+    primitives::{Address, Bytes, B256, U256, U64},
+    rpc::*,
+};
 
 #[trait_variant::make(EthApi: Send)]
 pub trait LocalEthApi: Clone + Send + Sync + 'static {
