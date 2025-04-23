@@ -8,7 +8,7 @@ name = "mandu-node"
 path = "src/bin/main.rs"
 
 [dependencies]
-alloy = { workspace = true, features = ["consensus", "eips", "k256", "network", "rlp"] }
+# alloy = { workspace = true, features = ["consensus", "eips", "k256", "network", "rlp"] }
 bytes = "1.9"
 futures = { workspace = true }
 mandu-abci = { workspace = true }

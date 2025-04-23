@@ -17,7 +17,8 @@ impl EthApi for Backend {
 
     /// Returns the number of most recent block.
     async fn block_number(&self) -> Result<U256, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let block_number = U256::from(self.blocks().current_number().await);
+        Ok(block_number)
     }
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
