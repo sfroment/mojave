@@ -4,11 +4,11 @@ members = [
     "crates/evm",
     "crates/node",
     "crates/rpc",
+    "crates/types",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-alloy = { version = "0.12", default-features = false }
 futures = "0.3"
 serde = { version = "1", default-features = false }
 tokio = { version = "1", default-features = false }
@@ -22,3 +22,4 @@ mandu-abci = { path = "crates/abci" }
 mandu-evm = { path = "crates/evm" }
 mandu-node = { path = "crates/node" }
 mandu-rpc = { path = "crates/rpc" }
+mandu-types = { path = "crates/types" }
