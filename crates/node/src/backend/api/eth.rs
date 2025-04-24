@@ -1,6 +1,8 @@
 use crate::backend::{error::BackendError, Backend};
 use mandu_rpc::api::eth::EthApi;
 use mandu_types::{
+    consensus::TxEnvelope,
+    eips::Decodable2718,
     primitives::{Address, Bytes, B256, U256, U64},
     rpc::*,
 };
@@ -56,14 +58,14 @@ impl EthApi for Backend {
     /// list.
     async fn create_access_list(
         &self,
-        parameter: EthCreateAccessList,
+        _parameter: EthCreateAccessList,
     ) -> Result<AccessListResult, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
     /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
     /// complete.
-    async fn estimate_gas(&self, parameter: EthEstimateGas) -> Result<U256, Self::Error> {
+    async fn estimate_gas(&self, _parameter: EthEstimateGas) -> Result<U256, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
@@ -74,7 +76,7 @@ impl EthApi for Backend {
     /// Returns transaction base fee per gas and effective priority fee per gas for the
     /// requested/supported block range. The returned Fee history for the returned block range
     /// can be a subsection of the requested range if not all blocks are available.
-    async fn fee_history(&self, parameter: EthFeeHistory) -> Result<FeeHistory, Self::Error> {
+    async fn fee_history(&self, _parameter: EthFeeHistory) -> Result<FeeHistory, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
@@ -314,11 +316,30 @@ impl EthApi for Backend {
     ) -> Result<B256, Self::Error> {
         let mut data = parameter.bytes.as_ref();
 
+        // Handle empty transaction.
         if data.is_empty() {
             return Err(BackendError::EmptyRawTransaction);
         }
 
-        Err(BackendError::Unimplemented)
+        // Decode the transaction.
+        let transaction =
+            TxEnvelope::decode_2718(&mut data).map_err(|_| BackendError::DecodeTransaction)?;
+
+        // TODO: Validate the transaction before we add it in the pending transaction pool.
+        let mut pool = self.transaction_pool().write().await;
+        let transaction_hash = pool.add_pending_transaction(transaction);
+        drop(pool);
+
+        // Broadcast transactions.
+        self.abci_client()
+            .broadcast_transaction(data.to_vec())
+            .await
+            .map_err(BackendError::BroadcastTransaction)?;
+
+        // Notify pubsub service.
+        self.pubsub_service()
+            .publish_pending_transaction(transaction_hash);
+        Ok(transaction_hash)
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"

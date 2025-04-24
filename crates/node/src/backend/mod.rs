@@ -5,10 +5,13 @@ pub mod env;
 pub mod error;
 pub mod evm;
 pub mod storage;
-// pub mod transaction;
 
-use crate::{pool::TransactionPool, service::PubSubService};
+use crate::{
+    pool::TransactionPool,
+    service::{FilterService, PubSubService},
+};
 use env::Environments;
+use mandu_abci::client::AbciClient;
 use std::sync::Arc;
 use storage::Blockchain;
 use tokio::sync::RwLock;
@@ -23,6 +26,8 @@ struct BackendInner {
     blockchain: RwLock<Blockchain>,
     transaction_pool: RwLock<TransactionPool>,
     pubsub_service: PubSubService,
+    filter_service: FilterService,
+    abci_client: AbciClient,
 }
 
 impl Clone for Backend {
@@ -57,5 +62,13 @@ impl Backend {
 
     pub fn pubsub_service(&self) -> &PubSubService {
         &self.inner.pubsub_service
+    }
+
+    pub fn filter_service(&self) -> &FilterService {
+        &self.inner.filter_service
+    }
+
+    pub fn abci_client(&self) -> &AbciClient {
+        &self.inner.abci_client
     }
 }

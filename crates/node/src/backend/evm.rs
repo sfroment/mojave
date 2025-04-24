@@ -1,9 +1,8 @@
-use mandu_types::primitives::ChainId;
 use revm::{
     context::{BlockEnv, CfgEnv, Context, Evm, TxEnv},
     database::{CacheDB, EmptyDB, EmptyDBTyped},
     handler::{instructions::EthInstructions, EthPrecompiles},
-    interpreter::{interpreter::EthInterpreter, Host},
+    interpreter::interpreter::EthInterpreter,
     MainBuilder, MainContext,
 };
 use std::convert::Infallible;

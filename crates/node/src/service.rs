@@ -37,6 +37,14 @@ impl PubSubService {
     pub fn subscribe_new_pending_transaction(&self) -> PendingTransactionStream {
         self.pending_transaction.subscribe().into()
     }
+
+    pub fn publish_new_head(&self, new_head: Header) {
+        let _ = self.new_heads.send(new_head);
+    }
+
+    pub fn publish_pending_transaction(&self, transaction_hash: TransactionHash) {
+        let _ = self.pending_transaction.send(transaction_hash);
+    }
 }
 
 pub struct NewHeadsStream(BroadcastStream<Header>);
@@ -115,4 +123,10 @@ impl Stream for PendingTransactionStream {
             },
         }
     }
+}
+
+pub struct FilterService {}
+
+impl FilterService {
+    pub fn add_filter() {}
 }

@@ -2,7 +2,6 @@ use std::convert::Infallible;
 
 use revm::context::DBErrorMarker;
 
-#[derive(Clone, PartialEq, Eq)]
 pub enum BackendError {
     EmptyRawTransaction,
     DecodeTransaction,
@@ -11,6 +10,8 @@ pub enum BackendError {
     InvalidBlockNumberOrTag(mandu_types::rpc::BlockNumberOrTag),
     AccountDoesNotExist(mandu_types::primitives::Address),
     CodeDoesNotExist,
+    RecoverSigner,
+    BroadcastTransaction(mandu_abci::client::AbciClientError),
     Unimplemented,
 }
 
@@ -24,6 +25,10 @@ impl std::fmt::Debug for BackendError {
             Self::InvalidBlockNumberOrTag(value) => write!(f, "Invalid block number: {}", value),
             Self::AccountDoesNotExist(account) => write!(f, "Account: {} does not exist", account),
             Self::CodeDoesNotExist => write!(f, "Code does not exist"),
+            Self::RecoverSigner => write!(f, "Failed to verify the transaction"),
+            Self::BroadcastTransaction(error) => {
+                write!(f, "Failed to broadcast the transaction: {}", error)
+            }
             Self::Unimplemented => write!(f, "Unimplemented"),
         }
     }
