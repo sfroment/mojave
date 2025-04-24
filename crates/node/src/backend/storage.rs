@@ -1,112 +1,131 @@
-use crate::backend::database::StateDatabase;
-use revm::primitives::{map::B256HashMap, HashMap, B256};
-use std::{collections::VecDeque, sync::Arc};
-use tokio::sync::RwLock;
+use super::database::StateDatabase;
+use mandu_types::{
+    primitives::B256,
+    rpc::{Block, BlockId, BlockNumberOrTag},
+};
+use revm::primitives::{map::B256HashMap, HashMap};
+use std::collections::VecDeque;
 
-pub const DEFAULT_STATES_LIMIT: usize = 256;
+pub const DEFAULT_LIMIT: usize = 256;
 
-/// In-memory blockchain data.
-pub struct BlockStorage {
-    inner: Arc<RwLock<BlockStorageInner>>,
-}
-
-#[derive(Default)]
-struct BlockStorageInner {
-    block: B256HashMap<B256>,
+/// In-memory blockchain database.
+pub struct Blockchain {
+    block: B256HashMap<Block>,
     // Map the block number to block hash.
     block_hash: HashMap<u64, B256>,
     current_hash: B256,
     current_number: u64,
     genesis_hash: B256,
-}
-
-impl Clone for BlockStorage {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
-
-impl Default for BlockStorage {
-    fn default() -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(BlockStorageInner::default())),
-        }
-    }
-}
-
-impl BlockStorage {
-    pub async fn get_block_hash(&self, block_number: u64) -> Option<B256> {
-        let inner = self.inner.read().await;
-        inner.block_hash.get(&block_number).cloned()
-    }
-
-    pub async fn current_hash(&self) -> B256 {
-        let inner = self.inner.read().await;
-        inner.current_hash
-    }
-
-    pub async fn current_number(&self) -> u64 {
-        let inner = self.inner.read().await;
-        inner.current_number
-    }
-}
-
-/// In-memory block states.
-pub struct StateStorage {
-    inner: Arc<RwLock<StateStorageInner>>,
-}
-
-struct StateStorageInner {
     state_map: B256HashMap<StateDatabase>,
     state_hash: VecDeque<B256>,
     state_limit: usize,
 }
 
-impl Default for StateStorageInner {
+impl Default for Blockchain {
     fn default() -> Self {
         Self {
+            block: B256HashMap::default(),
+            // Map the block number to block hash.
+            block_hash: HashMap::default(),
+            current_hash: B256::default(),
+            current_number: u64::default(),
+            genesis_hash: B256::default(),
             state_map: B256HashMap::default(),
-            state_hash: VecDeque::with_capacity(DEFAULT_STATES_LIMIT),
-            state_limit: DEFAULT_STATES_LIMIT,
+            state_hash: VecDeque::with_capacity(DEFAULT_LIMIT),
+            state_limit: DEFAULT_LIMIT,
         }
     }
 }
 
-impl Clone for StateStorage {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
+impl Blockchain {
+    pub fn get_block_by_hash(&self, hash: B256) -> Option<Block> {
+        self.block.get(&hash).cloned()
+    }
+
+    pub fn get_block_by_number(&self, number: u64) -> Option<Block> {
+        self.get_block_hash(number)
+            .and_then(|hash| self.get_block_by_hash(hash))
+    }
+
+    pub fn get_block_hash(&self, block_number: u64) -> Option<B256> {
+        self.block_hash.get(&block_number).cloned()
+    }
+
+    pub fn get_current_hash(&self) -> B256 {
+        self.current_hash
+    }
+
+    pub fn get_current_number(&self) -> u64 {
+        self.current_number
+    }
+
+    pub fn get_genesis_hash(&self) -> B256 {
+        self.genesis_hash
+    }
+
+    /// Return [None] when requesting for the pending block.
+    pub fn get_block_hash_by_id(&self, block_id: &Option<BlockId>) -> Option<B256> {
+        match block_id {
+            Some(block_id) => match block_id {
+                BlockId::Hash(hash) => Some(hash.block_hash),
+                BlockId::Number(number_or_tag) => {
+                    self.get_block_hash_by_number_or_tag(number_or_tag)
+                }
+            },
+            None => Some(self.current_hash),
         }
     }
-}
 
-impl Default for StateStorage {
-    fn default() -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(StateStorageInner::default())),
+    /// Return [None] when requesting for the pending block.
+    pub fn get_block_hash_by_number_or_tag(
+        &self,
+        number_or_tag: &BlockNumberOrTag,
+    ) -> Option<B256> {
+        let slots_in_an_epoch: u64 = 32;
+        match number_or_tag {
+            BlockNumberOrTag::Latest => Some(self.current_hash),
+            BlockNumberOrTag::Finalized => {
+                if self.current_number > (slots_in_an_epoch * 2_u64) {
+                    let number = self.current_number - (slots_in_an_epoch * 2_u64);
+                    self.get_block_hash(number)
+                } else {
+                    Some(self.genesis_hash)
+                }
+            }
+            BlockNumberOrTag::Safe => {
+                if self.current_number > slots_in_an_epoch {
+                    let number = self.current_number - slots_in_an_epoch;
+                    self.get_block_hash(number)
+                } else {
+                    Some(self.genesis_hash)
+                }
+            }
+            BlockNumberOrTag::Earliest => Some(self.genesis_hash),
+            BlockNumberOrTag::Pending => None,
+            BlockNumberOrTag::Number(number) => self.get_block_hash(*number),
         }
     }
-}
 
-impl StateStorage {
-    pub async fn get(&self, hash: &B256) -> Option<StateDatabase> {
-        let inner = self.inner.read().await;
-        inner.state_map.get(hash).cloned()
+    pub fn add_new_block(&mut self) {}
+
+    pub fn get_state(&self, hash: &B256) -> Option<StateDatabase> {
+        self.state_map.get(hash).cloned()
     }
 
-    pub async fn insert(&self, hash: B256, state: impl Into<StateDatabase>) {
-        let mut inner = self.inner.write().await;
-        if inner.state_hash.len() == inner.state_limit {
+    pub fn get_current_state(&self) -> Option<StateDatabase> {
+        self.state_hash.back().and_then(|hash| self.get_state(hash))
+    }
+
+    pub fn insert_state(&mut self, hash: B256, state: impl Into<StateDatabase>) {
+        if self.state_hash.len() == self.state_limit {
             // Remove the oldest state database.
-            if let Some(hash_to_be_removed) = inner.state_hash.pop_front() {
-                inner.state_map.remove(&hash_to_be_removed);
+            if let Some(hash_to_be_removed) = self.state_hash.pop_front() {
+                self.state_map.remove(&hash_to_be_removed);
             }
 
             // Insert the new state database.
-            inner.state_hash.push_back(hash);
-            inner.state_map.insert(hash, state.into());
+            self.state_hash.push_back(hash);
+            self.state_map.insert(hash, state.into());
         }
     }
 }

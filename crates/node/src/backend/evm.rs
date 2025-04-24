@@ -1,11 +1,10 @@
+use mandu_types::primitives::ChainId;
 use revm::{
-    context::{BlockEnv, CfgEnv, Context, ContextTr, Evm, TxEnv},
+    context::{BlockEnv, CfgEnv, Context, Evm, TxEnv},
     database::{CacheDB, EmptyDB, EmptyDBTyped},
     handler::{instructions::EthInstructions, EthPrecompiles},
     interpreter::{interpreter::EthInterpreter, Host},
-    primitives::{Address, TxKind, U256},
-    state::AccountInfo,
-    Database, DatabaseCommit, DatabaseRef, ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
+    MainBuilder, MainContext,
 };
 use std::convert::Infallible;
 

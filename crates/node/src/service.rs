@@ -1,5 +1,5 @@
 use futures::{Stream, StreamExt};
-use mandu_rpc::types::{Filter, Header, Log, TransactionHash};
+use mandu_types::rpc::{Filter, Header, Log, TransactionHash};
 use std::{
     pin::Pin,
     task::{Context, Poll},

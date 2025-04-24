@@ -1,31 +1,14 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use mandu_types::rpc::Transaction;
 
-pub type Transaction = Vec<u8>;
-
+#[derive(Default)]
 pub struct TransactionPool {
-    pending: Arc<Mutex<Vec<Transaction>>>,
-}
-
-impl Clone for TransactionPool {
-    fn clone(&self) -> Self {
-        Self {
-            pending: self.pending.clone(),
-        }
-    }
-}
-
-impl Default for TransactionPool {
-    fn default() -> Self {
-        Self {
-            pending: Arc::new(Mutex::new(Vec::default())),
-        }
-    }
+    pending: Vec<Transaction>,
 }
 
 impl TransactionPool {
-    pub async fn add_pending_transaction(&self, transaction: Transaction) {
-        let mut pending = self.pending.lock().await;
-        pending.push(transaction);
+    // pub fn add_pending_transaction(&mut self) {}
+
+    pub fn get_transaction_count(&self) -> usize {
+        self.pending.len()
     }
 }

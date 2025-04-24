@@ -1,14 +1,17 @@
 pub mod api;
 pub mod block;
 pub mod database;
+pub mod env;
 pub mod error;
 pub mod evm;
 pub mod storage;
-pub mod transaction;
+// pub mod transaction;
 
 use crate::{pool::TransactionPool, service::PubSubService};
+use env::Environments;
 use std::sync::Arc;
-use storage::{BlockStorage, StateStorage};
+use storage::Blockchain;
+use tokio::sync::RwLock;
 
 pub struct Backend {
     inner: Arc<BackendInner>,
@@ -16,9 +19,9 @@ pub struct Backend {
 
 #[derive(Default)]
 struct BackendInner {
-    blocks: BlockStorage,
-    states: StateStorage,
-    transaction_pool: TransactionPool,
+    environments: RwLock<Environments>,
+    blockchain: RwLock<Blockchain>,
+    transaction_pool: RwLock<TransactionPool>,
     pubsub_service: PubSubService,
 }
 
@@ -40,15 +43,15 @@ impl Default for Backend {
 }
 
 impl Backend {
-    pub fn blocks(&self) -> &BlockStorage {
-        &self.inner.blocks
+    pub fn environments(&self) -> &RwLock<Environments> {
+        &self.inner.environments
     }
 
-    pub fn states(&self) -> &StateStorage {
-        &self.inner.states
+    pub fn blockchain(&self) -> &RwLock<Blockchain> {
+        &self.inner.blockchain
     }
 
-    pub fn transaction_pool(&self) -> &TransactionPool {
+    pub fn transaction_pool(&self) -> &RwLock<TransactionPool> {
         &self.inner.transaction_pool
     }
 

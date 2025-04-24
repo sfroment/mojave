@@ -13,6 +13,7 @@ bytes = "1.9"
 futures = { workspace = true }
 mandu-abci = { workspace = true }
 mandu-rpc = { workspace = true }
+mandu-types = { workspace = true }
 revm = { git = "https://github.com/bluealloy/revm", tag = "v66" }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }

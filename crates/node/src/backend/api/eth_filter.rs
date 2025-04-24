@@ -1,5 +1,6 @@
 use crate::backend::{error::BackendError, Backend};
-use mandu_rpc::{api::eth_filter::EthFilterApi, types::*};
+use mandu_rpc::api::eth_filter::EthFilterApi;
+use mandu_types::rpc::*;
 
 impl EthFilterApi for Backend {
     type Error = BackendError;

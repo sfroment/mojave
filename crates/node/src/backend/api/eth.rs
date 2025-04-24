@@ -1,13 +1,16 @@
-use crate::backend::{error::BackendError, transaction::TypedTransaction, Backend};
-use alloy::eips::Decodable2718;
-use mandu_rpc::{api::eth::EthApi, types::*};
+use crate::backend::{error::BackendError, Backend};
+use mandu_rpc::api::eth::EthApi;
+use mandu_types::{
+    primitives::{Address, Bytes, B256, U256, U64},
+    rpc::*,
+};
 
 impl EthApi for Backend {
     type Error = BackendError;
 
     /// Returns a list of addresses owned by client.
     async fn accounts(&self) -> Result<Vec<Address>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        Ok(Vec::default())
     }
 
     /// Introduced in EIP-4844, returns the current blob base fee in wei.
@@ -17,8 +20,8 @@ impl EthApi for Backend {
 
     /// Returns the number of most recent block.
     async fn block_number(&self) -> Result<U256, Self::Error> {
-        let block_number = U256::from(self.blocks().current_number().await);
-        Ok(block_number)
+        let block_number = self.blockchain().read().await.get_current_number();
+        Ok(U256::from(block_number))
     }
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
@@ -28,7 +31,8 @@ impl EthApi for Backend {
 
     /// Returns the chain ID of the current network.
     async fn chain_id(&self) -> Result<Option<U64>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let chain_id = self.environments().read().await.cfg_env.chain_id;
+        Ok(Some(U64::from(chain_id)))
     }
 
     /// Returns the client coinbase address.
@@ -81,7 +85,29 @@ impl EthApi for Backend {
 
     /// Returns the balance of the account of given address.
     async fn get_balance(&self, parameter: EthGetBalance) -> Result<U256, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+
+        // Parse the block ID to block hash and get the corresponding [`StateDatabase`].
+        let state = match blockchain.get_block_hash_by_id(&parameter.block_number) {
+            Some(block_hash) => blockchain
+                .get_state(&block_hash)
+                .ok_or(BackendError::InvalidBlockHash(block_hash))?,
+            None => {
+                let block_hash = blockchain.get_current_hash();
+                blockchain
+                    .get_state(&block_hash)
+                    .ok_or(BackendError::InvalidBlockHash(block_hash))?
+            }
+        };
+
+        // Release the lock.
+        drop(blockchain);
+
+        // Get the account balance.
+        let account = state
+            .get_account_info(parameter.address)
+            .ok_or(BackendError::AccountDoesNotExist(parameter.address))?;
+        Ok(account.balance)
     }
 
     /// Returns information about a block by hash.
@@ -89,7 +115,8 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockByHash,
     ) -> Result<Option<Block>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+        Ok(blockchain.get_block_by_hash(parameter.hash))
     }
 
     /// Returns information about a block by number.
@@ -97,7 +124,11 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockByNumber,
     ) -> Result<Option<Block>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+        let block_hash = blockchain
+            .get_block_hash_by_number_or_tag(&parameter.number)
+            .ok_or(BackendError::InvalidBlockNumberOrTag(parameter.number))?;
+        Ok(blockchain.get_block_by_hash(block_hash))
     }
 
     /// Returns all transaction receipts for a given block.
@@ -113,7 +144,13 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockTransactionCountByHash,
     ) -> Result<Option<U256>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+        match blockchain.get_block_by_hash(parameter.hash) {
+            Some(block) => Ok(Some(U256::from(block.transactions.len()))),
+
+            // Return [None] if the corresponding block does not exist.
+            None => Ok(None),
+        }
     }
 
     /// Returns the number of transactions in a block matching the given block number.
@@ -121,25 +158,59 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockTransactionCountByNumber,
     ) -> Result<Option<U256>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+        match blockchain.get_block_hash_by_number_or_tag(&parameter.number) {
+            Some(block_hash) => match blockchain.get_block_by_hash(block_hash) {
+                Some(block) => Ok(Some(U256::from(block.transactions.len()))),
+
+                // Return [None] if the corresponding block does not exist.
+                None => Ok(None),
+            },
+            None => {
+                // Release the lock.
+                drop(blockchain);
+                let len = self.transaction_pool().read().await.get_transaction_count();
+                Ok(Some(U256::from(len)))
+            }
+        }
     }
 
     /// Returns code at a given address at given block number.
     async fn get_code(&self, parameter: EthGetCode) -> Result<Bytes, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+
+        // Get the block hash by block ID.
+        let block_hash = blockchain
+            .get_block_hash_by_id(&parameter.block_number)
+            .ok_or(BackendError::InvalidBlockId(parameter.block_number))?;
+
+        // Get the corresponding [StateDatabase].
+        let state = blockchain
+            .get_state(&block_hash)
+            .ok_or(BackendError::InvalidBlockHash(block_hash))?;
+
+        // Release the lock.
+        drop(blockchain);
+
+        let code = state
+            .get_account_info(parameter.address)
+            .ok_or(BackendError::AccountDoesNotExist(parameter.address))?
+            .code
+            .ok_or(BackendError::CodeDoesNotExist)?;
+        Ok(code.bytes())
     }
 
     /// Returns the account and storage values of the specified account including the Merkle-proof.
     /// This call can be used to verify that the data you are pulling from is not tampered with.
     async fn get_proof(
         &self,
-        parameter: EthGetProof,
+        _parameter: EthGetProof,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
     /// Returns the value from a storage position at a given address
-    async fn get_storage_at(&self, parameter: EthGetStorageAt) -> Result<B256, Self::Error> {
+    async fn get_storage_at(&self, _parameter: EthGetStorageAt) -> Result<B256, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
@@ -148,7 +219,22 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionByBlockHashAndIndex,
     ) -> Result<Option<Transaction>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+
+        // Get the block.
+        let block = blockchain
+            .get_block_by_hash(parameter.hash)
+            .ok_or(BackendError::InvalidBlockHash(parameter.hash))?;
+
+        // Release the lock.
+        drop(blockchain);
+
+        match block.transactions.as_transactions() {
+            Some(transactions) => Ok(transactions.get(parameter.index.0).cloned()),
+
+            // Return [None] if unable to find the transaction by index.
+            None => Ok(None),
+        }
     }
 
     /// Returns information about a transaction by block number and transaction index position.
@@ -156,7 +242,24 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionByBlockNumberAndIndex,
     ) -> Result<Option<Transaction>, Self::Error> {
-        Err(BackendError::Unimplemented)
+        let blockchain = self.blockchain().read().await;
+
+        match blockchain.get_block_hash_by_number_or_tag(&parameter.number) {
+            Some(block_hash) => match blockchain.get_block_by_hash(block_hash) {
+                Some(block) => match block.transactions.as_transactions() {
+                    Some(transactions) => Ok(transactions.get(parameter.index.0).cloned()),
+
+                    // Return [None] if unable to find the transaction by index.
+                    None => Ok(None),
+                },
+
+                // Return [None] if the block number is invalid.
+                None => Ok(None),
+            },
+
+            // Return [None] for requesting the pending block.
+            None => Ok(None),
+        }
     }
 
     /// Returns the information about a transaction requested by transaction hash.
@@ -215,21 +318,18 @@ impl EthApi for Backend {
             return Err(BackendError::EmptyRawTransaction);
         }
 
-        let transaction = TypedTransaction::decode_2718(&mut data)
-            .map_err(|_| BackendError::DecodeTransaction)?;
-
         Err(BackendError::Unimplemented)
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
-    async fn sign(&self, parameter: EthSign) -> Result<Bytes, Self::Error> {
+    async fn sign(&self, _parameter: EthSign) -> Result<Bytes, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 
     /// Signs a transaction that can be submitted to the network at a later time using with
     /// `sendRawTransaction.`
-    async fn sign_transaction(&self, parameter: EthSignTransaction) -> Result<Bytes, Self::Error> {
+    async fn sign_transaction(&self, _parameter: EthSignTransaction) -> Result<Bytes, Self::Error> {
         Err(BackendError::Unimplemented)
     }
 

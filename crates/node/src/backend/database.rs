@@ -1,11 +1,11 @@
+use super::error::BackendError;
+use mandu_types::primitives::{Address, B256, U256};
 use revm::{
-    context::DBErrorMarker,
     database::{CacheDB, EmptyDB},
-    primitives::{Address, B256, U256},
     state::{AccountInfo, Bytecode},
     DatabaseRef,
 };
-use std::{convert::Infallible, sync::Arc};
+use std::sync::Arc;
 
 pub struct StateDatabase(Arc<CacheDB<EmptyDB>>);
 
@@ -22,7 +22,7 @@ impl From<CacheDB<EmptyDB>> for StateDatabase {
 }
 
 impl DatabaseRef for StateDatabase {
-    type Error = DatabaseError;
+    type Error = BackendError;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         self.0.basic_ref(address).map_err(|error| error.into())
@@ -35,9 +35,7 @@ impl DatabaseRef for StateDatabase {
     }
 
     fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        self.0
-            .storage_ref(address, index)
-            .map_err(|error| error.into())
+        Ok(self.0.storage_ref(address, index).unwrap())
     }
 
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error> {
@@ -45,26 +43,8 @@ impl DatabaseRef for StateDatabase {
     }
 }
 
-pub enum DatabaseError {}
-
-impl std::fmt::Debug for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
+impl StateDatabase {
+    pub fn get_account_info(&self, address: Address) -> Option<AccountInfo> {
+        self.0.basic_ref(address).unwrap()
     }
 }
-
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for DatabaseError {}
-
-impl From<Infallible> for DatabaseError {
-    fn from(value: Infallible) -> Self {
-        match value {}
-    }
-}
-
-impl DBErrorMarker for DatabaseError {}

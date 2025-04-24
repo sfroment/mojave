@@ -1,6 +1,7 @@
 use crate::backend::Backend;
 use futures::stream::Stream;
-use mandu_rpc::{api::eth_pubsub::EthPubSubApi, types::*};
+use mandu_rpc::api::eth_pubsub::EthPubSubApi;
+use mandu_types::rpc::{Filter, Header, Log, TransactionHash};
 
 impl EthPubSubApi for Backend {
     fn subscribe_new_heads(&self) -> impl Stream<Item = Header> + Unpin {
