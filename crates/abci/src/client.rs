@@ -9,6 +9,12 @@ pub struct AbciClient {
     client: HttpClient,
 }
 
+impl Default for AbciClient {
+    fn default() -> Self {
+        Self::new("http://127.0.0.1:26657").unwrap()
+    }
+}
+
 impl AbciClient {
     pub fn new(tendermint_rpc_url: impl AsRef<str>) -> Result<Self, AbciClientError> {
         let rpc_url = HttpClientUrl::from_str(tendermint_rpc_url.as_ref())
@@ -33,8 +39,17 @@ impl AbciClient {
     }
 }
 
+#[derive(Debug)]
 pub enum AbciClientError {
     InvalidURL(tendermint_rpc::Error),
     Build(tendermint_rpc::Error),
     BroadcastTransaction(tendermint_rpc::Error),
 }
+
+impl std::fmt::Display for AbciClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for AbciClientError {}
