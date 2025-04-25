@@ -1,8 +1,7 @@
 use crate::backend::{error::BackendError, Backend};
+use mandu_abci::types::Hash;
 use mandu_rpc::api::eth::EthApi;
 use mandu_types::{
-    consensus::TxEnvelope,
-    eips::Decodable2718,
     primitives::{Address, Bytes, B256, U256, U64},
     rpc::*,
 };
@@ -314,32 +313,26 @@ impl EthApi for Backend {
         &self,
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error> {
-        let mut data = parameter.bytes.as_ref();
-
-        // Handle empty transaction.
-        if data.is_empty() {
-            return Err(BackendError::EmptyRawTransaction);
-        }
-
-        // Decode the transaction.
-        let transaction =
-            TxEnvelope::decode_2718(&mut data).map_err(|_| BackendError::DecodeTransaction)?;
-
-        // TODO: Validate the transaction before we add it in the pending transaction pool.
-        let mut pool = self.transaction_pool().write().await;
-        let transaction_hash = pool.add_pending_transaction(transaction);
-        drop(pool);
-
         // Broadcast transactions.
-        self.abci_client()
-            .broadcast_transaction(data.to_vec())
+        let response = self
+            .abci_client()
+            .broadcast_transaction(parameter.bytes.to_vec())
             .await
             .map_err(BackendError::BroadcastTransaction)?;
 
-        // Notify pubsub service.
-        self.pubsub_service()
-            .publish_pending_transaction(transaction_hash);
-        Ok(transaction_hash)
+        if response.code == 0 {
+            let transaction_hash = match response.hash {
+                Hash::Sha256(value) => B256::from_slice(&value),
+                Hash::None => return Err(BackendError::EmptyTransactionHash),
+            };
+
+            // Notify pubsub service.
+            self.pubsub_service()
+                .publish_pending_transaction(transaction_hash);
+            Ok(transaction_hash)
+        } else {
+            Err(response.code.to_err())
+        }
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"

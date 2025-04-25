@@ -12,6 +12,7 @@ pub enum BackendError {
     CodeDoesNotExist,
     RecoverSigner,
     BroadcastTransaction(mandu_abci::client::AbciClientError),
+    EmptyTransactionHash,
     Unimplemented,
 }
 
@@ -29,6 +30,7 @@ impl std::fmt::Debug for BackendError {
             Self::BroadcastTransaction(error) => {
                 write!(f, "Failed to broadcast the transaction: {}", error)
             }
+            Self::EmptyTransactionHash => write!(f, "Empty transaction hash"),
             Self::Unimplemented => write!(f, "Unimplemented"),
         }
     }

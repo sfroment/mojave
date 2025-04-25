@@ -125,8 +125,5 @@ impl Stream for PendingTransactionStream {
     }
 }
 
+#[derive(Default)]
 pub struct FilterService {}
-
-impl FilterService {
-    pub fn add_filter() {}
-}
