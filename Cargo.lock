@@ -2469,10 +2469,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mandu-evm"
-version = "0.1.0"
-
-[[package]]
 name = "mandu-node"
 version = "0.1.0"
 dependencies = [
@@ -2480,6 +2476,7 @@ dependencies = [
  "futures",
  "mandu-abci",
  "mandu-rpc",
+ "mandu-types",
  "revm",
  "serde",
  "tokio",
