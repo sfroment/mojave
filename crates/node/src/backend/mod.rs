@@ -1,39 +1,22 @@
-pub mod api;
-pub mod block;
-pub mod database;
-pub mod env;
-pub mod error;
-pub mod evm;
-pub mod storage;
-
-use crate::{
-    pool::TransactionPool,
-    service::{FilterService, PubSubService},
-};
-use env::Environments;
-use mandu_abci::client::AbciClient;
-use revm::database::{CacheDB, EmptyDB};
 use std::sync::Arc;
-use storage::Blockchain;
-use tokio::sync::RwLock;
+
+use mandu_abci::client::AbciClient;
+
+use crate::service::AbciService;
+pub mod api;
+pub mod error;
 
 pub struct Backend {
     inner: Arc<BackendInner>,
 }
 
-#[derive(Default)]
 struct BackendInner {
-    environments: RwLock<Environments>,
-    database: RwLock<CacheDB<EmptyDB>>,
-    blockchain: RwLock<Blockchain>,
-    transaction_pool: RwLock<TransactionPool>,
-    pubsub_service: PubSubService,
-    filter_service: FilterService,
+    eth_driver: anvil::eth::EthApi,
     abci_client: AbciClient,
+    abci_service: AbciService,
 }
 
 impl Clone for Backend {
-    #[inline(always)]
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -41,40 +24,30 @@ impl Clone for Backend {
     }
 }
 
-impl Default for Backend {
-    fn default() -> Self {
-        Self {
-            inner: Arc::new(BackendInner::default()),
-        }
-    }
-}
-
 impl Backend {
-    pub fn environments(&self) -> &RwLock<Environments> {
-        &self.inner.environments
+    pub async fn init() -> (Self, anvil::NodeHandle) {
+        let node_config = anvil::NodeConfig::empty_state();
+        let (eth_api, handle) = anvil::try_spawn(node_config).await.unwrap();
+
+        let backend = Self {
+            inner: Arc::new(BackendInner {
+                eth_driver: eth_api,
+                abci_client: AbciClient::new("http://127.0.0.1:26657").unwrap(),
+                abci_service: AbciService::init(),
+            }),
+        };
+        (backend, handle)
     }
 
-    pub fn database(&self) -> &RwLock<CacheDB<EmptyDB>> {
-        &self.inner.database
-    }
-
-    pub fn blockchain(&self) -> &RwLock<Blockchain> {
-        &self.inner.blockchain
-    }
-
-    pub fn transaction_pool(&self) -> &RwLock<TransactionPool> {
-        &self.inner.transaction_pool
-    }
-
-    pub fn pubsub_service(&self) -> &PubSubService {
-        &self.inner.pubsub_service
-    }
-
-    pub fn filter_service(&self) -> &FilterService {
-        &self.inner.filter_service
+    pub fn driver(&self) -> &anvil::eth::EthApi {
+        &self.inner.eth_driver
     }
 
     pub fn abci_client(&self) -> &AbciClient {
         &self.inner.abci_client
+    }
+
+    pub fn abci_service(&self) -> &AbciService {
+        &self.inner.abci_service
     }
 }

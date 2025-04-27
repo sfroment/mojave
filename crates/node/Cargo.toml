@@ -8,13 +8,14 @@ name = "mandu-node"
 path = "src/bin/main.rs"
 
 [dependencies]
-# alloy = { workspace = true, features = ["consensus", "eips", "k256", "network", "rlp"] }
-bytes = "1.9"
+anvil = { git = "https://github.com/foundry-rs/foundry" }
 futures = { workspace = true }
 mandu-abci = { workspace = true }
 mandu-rpc = { workspace = true }
 mandu-types = { workspace = true }
-revm = { git = "https://github.com/bluealloy/revm", tag = "v66" }
 serde = { workspace = true, features = ["derive"] }
+serde_json = "1"
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = "0.1"
+tracing = "0.1"
+tracing-subscriber = "0.3"

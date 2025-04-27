@@ -1,8 +1,7 @@
-use std::convert::Infallible;
-
-use revm::context::DBErrorMarker;
-
 pub enum BackendError {
+    EthApi(anvil::eth::error::BlockchainError),
+    EthFilterResponse,
+    EthFilter(String),
     // CheckTx related errors.
     EmptyRawTransaction,
     DecodeTransaction,
@@ -25,6 +24,9 @@ pub enum BackendError {
 impl std::fmt::Debug for BackendError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::EthApi(error) => write!(f, "{}", error),
+            Self::EthFilter(error) => write!(f, "{}", error),
+            Self::EthFilterResponse => write!(f, "Failed to decode ethFilter response"),
             Self::EmptyRawTransaction => write!(f, "Empty raw transaction"),
             Self::DecodeTransaction => write!(f, "Failed to decode the transaction"),
             Self::GetCurrentState => write!(f, "Failed to get the current state"),
@@ -55,14 +57,6 @@ impl std::fmt::Display for BackendError {
 
 impl std::error::Error for BackendError {}
 
-impl DBErrorMarker for BackendError {}
-
-impl From<Infallible> for BackendError {
-    fn from(value: Infallible) -> Self {
-        match value {}
-    }
-}
-
 impl From<u32> for BackendError {
     fn from(value: u32) -> Self {
         match value {
@@ -92,3 +86,15 @@ impl From<BackendError> for u32 {
         }
     }
 }
+
+// pub enum EthApiError {
+//     Blockchain(anvil::eth::error::BlockchainError),
+// }
+
+// impl std::fmt::Debug for EthApiError {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{:?}", self)
+//     }
+// }
+
+// impl std::fmt::Display for EthApiError {}

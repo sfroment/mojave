@@ -5,13 +5,14 @@ use crate::{
 };
 use hyper::Method;
 use jsonrpsee::{
+    Extensions, RpcModule,
     core::RpcResult,
     server::{Server, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned, Params},
-    Extensions, RpcModule,
 };
 use mandu_types::{
-    primitives::{Address, Bytes, B256, U256, U64},
+    network::{AnyRpcBlock, AnyRpcTransaction},
+    primitives::{Address, B256, Bytes, U64, U256},
     rpc::*,
 };
 use std::{marker::PhantomData, sync::Arc};
@@ -222,7 +223,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Block>> {
+    ) -> RpcResult<Option<AnyRpcBlock>> {
         let parameter = parameter.parse()?;
         backend.get_block_by_hash(parameter).await.into_rpc_result()
     }
@@ -232,7 +233,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Block>> {
+    ) -> RpcResult<Option<AnyRpcBlock>> {
         let parameter = parameter.parse()?;
         backend
             .get_block_by_number(parameter)
@@ -245,7 +246,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Vec<TransactionReceipt>>> {
+    ) -> RpcResult<Option<Vec<TransactionReceipt<TypedReceipt<Receipt<Log>>>>>> {
         let parameter = parameter.parse::<EthBlockReceipts>()?;
         backend
             .get_block_receipts(parameter)
@@ -314,7 +315,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Transaction>> {
+    ) -> RpcResult<Option<AnyRpcTransaction>> {
         let parameter = parameter.parse::<EthGetTransactionByBlockHashAndIndex>()?;
         backend
             .get_transaction_by_block_hash_and_index(parameter)
@@ -327,7 +328,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Transaction>> {
+    ) -> RpcResult<Option<AnyRpcTransaction>> {
         let parameter = parameter.parse::<EthGetTransactionByBlockNumberAndIndex>()?;
         backend
             .get_transaction_by_block_number_and_index(parameter)
@@ -340,7 +341,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<Transaction>> {
+    ) -> RpcResult<Option<AnyRpcTransaction>> {
         let parameter = parameter.parse::<EthgetTransactionByHash>()?;
         backend
             .get_transaction_by_hash(parameter)
@@ -366,7 +367,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<TransactionReceipt>> {
+    ) -> RpcResult<Option<TransactionReceipt<TypedReceipt<Receipt<Log>>>>> {
         let parameter = parameter.parse::<EthGetTransactionReceipt>()?;
         backend
             .get_transaction_receipt(parameter)
@@ -379,7 +380,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<U256>> {
+    ) -> RpcResult<U256> {
         let parameter = parameter.parse::<EthGetUncleCountByBlockHash>()?;
         backend
             .get_uncle_count_by_block_hash(parameter)
@@ -392,7 +393,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Option<U256>> {
+    ) -> RpcResult<U256> {
         let parameter = parameter.parse::<EthGetUncleCountByBlockNumber>()?;
         backend
             .get_uncle_count_by_block_number(parameter)
@@ -427,7 +428,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Bytes> {
+    ) -> RpcResult<String> {
         let parameter = parameter.parse::<EthSign>()?;
         backend.sign(parameter).await.into_rpc_result()
     }
@@ -437,7 +438,7 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<Bytes> {
+    ) -> RpcResult<String> {
         let parameter = parameter.parse::<EthSignTransaction>()?;
         backend.sign_transaction(parameter).await.into_rpc_result()
     }
@@ -447,7 +448,7 @@ where
         _parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<SyncStatus> {
+    ) -> RpcResult<bool> {
         backend.syncing().await.into_rpc_result()
     }
 }
@@ -476,7 +477,7 @@ where
         backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<FilterChanges> {
-        let parameter = parameter.parse::<FilterId>()?;
+        let parameter = parameter.parse::<String>()?;
         backend
             .get_filter_changes(parameter)
             .await
@@ -488,7 +489,7 @@ where
         backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<Vec<Log>> {
-        let parameter = parameter.parse::<FilterId>()?;
+        let parameter = parameter.parse::<String>()?;
         backend.get_filter_logs(parameter).await.into_rpc_result()
     }
 
@@ -505,7 +506,7 @@ where
         _parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<FilterId> {
+    ) -> RpcResult<String> {
         backend.new_block_filter().await.into_rpc_result()
     }
 
@@ -513,19 +514,18 @@ where
         parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<FilterId> {
+    ) -> RpcResult<String> {
         let parameter = parameter.parse::<Filter>()?;
         backend.new_filter(parameter).await.into_rpc_result()
     }
 
     async fn new_pending_transaction_filter(
-        parameter: Params<'static>,
+        _parameter: Params<'static>,
         backend: Arc<T>,
         _extension: Extensions,
-    ) -> RpcResult<FilterId> {
-        let parameter = parameter.parse::<Option<PendingTransactionFilterKind>>()?;
+    ) -> RpcResult<String> {
         backend
-            .new_pending_transaction_filter(parameter)
+            .new_pending_transaction_filter()
             .await
             .into_rpc_result()
     }
@@ -535,7 +535,7 @@ where
         backend: Arc<T>,
         _extension: Extensions,
     ) -> RpcResult<bool> {
-        let parameter = parameter.parse::<FilterId>()?;
+        let parameter = parameter.parse::<String>()?;
         backend.uninstall_filter(parameter).await.into_rpc_result()
     }
 }

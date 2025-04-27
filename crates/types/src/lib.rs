@@ -4,10 +4,13 @@ pub mod consensus {
 pub mod eips {
     pub use alloy::eips::*;
 }
+pub mod network {
+    pub use alloy::network::*;
+}
 pub mod primitives {
     pub use alloy::core::primitives::*;
 }
 pub mod rpc;
-pub mod serde_helpers {
-    pub use alloy::serde::JsonStorageKey;
+pub mod serde {
+    pub use alloy::serde::*;
 }

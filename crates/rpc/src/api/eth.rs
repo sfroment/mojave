@@ -1,5 +1,6 @@
 use mandu_types::{
-    primitives::{Address, Bytes, B256, U256, U64},
+    network::{AnyRpcBlock, AnyRpcTransaction},
+    primitives::{Address, B256, Bytes, U64, U256},
     rpc::*,
 };
 
@@ -67,19 +68,19 @@ pub trait LocalEthApi: Clone + Send + Sync + 'static {
     async fn get_block_by_hash(
         &self,
         parameter: EthGetBlockByHash,
-    ) -> Result<Option<Block>, Self::Error>;
+    ) -> Result<Option<AnyRpcBlock>, Self::Error>;
 
     /// Returns information about a block by number.
     async fn get_block_by_number(
         &self,
         parameter: EthGetBlockByNumber,
-    ) -> Result<Option<Block>, Self::Error>;
+    ) -> Result<Option<AnyRpcBlock>, Self::Error>;
 
     /// Returns all transaction receipts for a given block.
     async fn get_block_receipts(
         &self,
         parameter: EthBlockReceipts,
-    ) -> Result<Option<Vec<TransactionReceipt>>, Self::Error>;
+    ) -> Result<Option<Vec<TransactionReceipt<TypedReceipt<Receipt<Log>>>>>, Self::Error>;
 
     /// Returns the number of transactions in a block from a block matching the given block hash.
     async fn get_block_transaction_count_by_hash(
@@ -110,19 +111,19 @@ pub trait LocalEthApi: Clone + Send + Sync + 'static {
     async fn get_transaction_by_block_hash_and_index(
         &self,
         parameter: EthGetTransactionByBlockHashAndIndex,
-    ) -> Result<Option<Transaction>, Self::Error>;
+    ) -> Result<Option<AnyRpcTransaction>, Self::Error>;
 
     /// Returns information about a transaction by block number and transaction index position.
     async fn get_transaction_by_block_number_and_index(
         &self,
         parameter: EthGetTransactionByBlockNumberAndIndex,
-    ) -> Result<Option<Transaction>, Self::Error>;
+    ) -> Result<Option<AnyRpcTransaction>, Self::Error>;
 
     /// Returns the information about a transaction requested by transaction hash.
     async fn get_transaction_by_hash(
         &self,
         parameter: EthgetTransactionByHash,
-    ) -> Result<Option<Transaction>, Self::Error>;
+    ) -> Result<Option<AnyRpcTransaction>, Self::Error>;
 
     /// Returns the number of transactions sent from an address at given block number.
     async fn get_transaction_count(
@@ -134,19 +135,19 @@ pub trait LocalEthApi: Clone + Send + Sync + 'static {
     async fn get_transaction_receipt(
         &self,
         parameter: EthGetTransactionReceipt,
-    ) -> Result<Option<TransactionReceipt>, Self::Error>;
+    ) -> Result<Option<TransactionReceipt<TypedReceipt<Receipt<Log>>>>, Self::Error>;
 
     /// Returns the number of uncles in a block from a block matching the given block hash.
     async fn get_uncle_count_by_block_hash(
         &self,
         parameter: EthGetUncleCountByBlockHash,
-    ) -> Result<Option<U256>, Self::Error>;
+    ) -> Result<U256, Self::Error>;
 
     /// Returns the number of uncles in a block with given block number.
     async fn get_uncle_count_by_block_number(
         &self,
         parameter: EthGetUncleCountByBlockNumber,
-    ) -> Result<Option<U256>, Self::Error>;
+    ) -> Result<U256, Self::Error>;
 
     /// Introduced in EIP-1559, returns suggestion for the priority for dynamic fee transactions.
     async fn max_priority_fee_per_gas(&self) -> Result<U256, Self::Error>;
@@ -159,12 +160,12 @@ pub trait LocalEthApi: Clone + Send + Sync + 'static {
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
-    async fn sign(&self, parameter: EthSign) -> Result<Bytes, Self::Error>;
+    async fn sign(&self, parameter: EthSign) -> Result<String, Self::Error>;
 
     /// Signs a transaction that can be submitted to the network at a later time using with
     /// `sendRawTransaction.`
-    async fn sign_transaction(&self, parameter: EthSignTransaction) -> Result<Bytes, Self::Error>;
+    async fn sign_transaction(&self, parameter: EthSignTransaction) -> Result<String, Self::Error>;
 
     /// Returns an object with data about the sync status or false.
-    async fn syncing(&self) -> Result<SyncStatus, Self::Error>;
+    async fn syncing(&self) -> Result<bool, Self::Error>;
 }

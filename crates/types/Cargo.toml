@@ -1,8 +1,10 @@
 [package]
 name = "mandu-types"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
+anvil-core = { git = "https://github.com/foundry-rs/foundry" }
+anvil-rpc = { git = "https://github.com/foundry-rs/foundry" }
 alloy = { version = "0.12", features = ["consensus", "eips", "json-rpc", "k256", "network", "rlp", "rpc-types", "serde"] }
 serde = { workspace = true, features = ["derive"] }

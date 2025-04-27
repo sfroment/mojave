@@ -1,6 +1,5 @@
 pub mod backend;
 pub mod pool;
-pub mod sequencer;
 pub mod service;
 
 use backend::{error::BackendError, Backend};
@@ -23,7 +22,6 @@ const BUFFER_SIZE: usize = 1048576;
 const RPC_ADDRESS: &str = "127.0.0.1:8545";
 const WEBSOCKET_ADDRESS: &str = "127.0.0.1:8546";
 
-#[derive(Default)]
 pub struct ManduNode {
     backend: Backend,
 }

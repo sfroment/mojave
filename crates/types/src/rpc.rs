@@ -1,16 +1,15 @@
+use crate::primitives::{Address, B256, Bytes, U64, U256};
 /// Re-export RPC types
 pub use alloy::rpc::types::*;
-
-use crate::{
-    primitives::{Address, Bytes, B256, U64},
-    serde_helpers::JsonStorageKey,
-};
+pub use anvil_core::eth::transaction::TypedReceipt;
+pub use anvil_rpc::response::ResponseResult;
 use serde::{Deserialize, Serialize};
+use serde_helpers::WithOtherFields;
 use state::StateOverride;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthCall {
-    pub request: TransactionRequest,
+    pub request: WithOtherFields<TransactionRequest>,
     pub block_number: Option<BlockId>,
     pub state_overrides: Option<StateOverride>,
     pub block_overrides: Option<Box<BlockOverrides>>,
@@ -18,13 +17,13 @@ pub struct EthCall {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthCreateAccessList {
-    pub request: TransactionRequest,
+    pub request: WithOtherFields<TransactionRequest>,
     pub block_number: Option<BlockId>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthEstimateGas {
-    pub request: TransactionRequest,
+    pub request: WithOtherFields<TransactionRequest>,
     pub block_number: Option<BlockId>,
     pub state_override: Option<StateOverride>,
 }
@@ -78,14 +77,14 @@ pub struct EthGetCode {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthGetProof {
     pub address: Address,
-    pub keys: Vec<JsonStorageKey>,
+    pub keys: Vec<B256>,
     pub block_number: Option<BlockId>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthGetStorageAt {
     pub address: Address,
-    pub index: JsonStorageKey,
+    pub index: U256,
     pub block_number: Option<BlockId>,
 }
 
@@ -140,7 +139,7 @@ pub struct EthSign {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthSignTransaction {
-    pub transaction: TransactionRequest,
+    pub transaction: WithOtherFields<TransactionRequest>,
 }
 
 pub type TransactionHash = B256;

@@ -1,10 +1,12 @@
-use futures::{Stream, StreamExt};
+use crate::backend::Backend;
+use futures::{channel::oneshot, Stream, StreamExt};
+use mandu_abci::types::{RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit};
 use mandu_types::rpc::{Filter, Header, Log, TransactionHash};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::wrappers::BroadcastStream;
 
 pub const QUEUE_LIMIT: usize = 100;
@@ -125,5 +127,69 @@ impl Stream for PendingTransactionStream {
     }
 }
 
-#[derive(Default)]
-pub struct FilterService {}
+pub struct AbciService {
+    sender: mpsc::UnboundedSender<(Backend, AbciRequest, oneshot::Sender<AbciResponse>)>,
+}
+
+impl AbciService {
+    pub fn init() -> Self {
+        let (sender, mut receiver) =
+            mpsc::unbounded_channel::<(Backend, AbciRequest, oneshot::Sender<AbciResponse>)>();
+        tokio::spawn(async move {
+            loop {
+                if let Some((backend, request, sender)) = receiver.recv().await {
+                    match request {
+                        AbciRequest::CheckTx(request) => {
+                            let response = backend.check_transaction(request).await;
+                            sender.send(response.into());
+                        }
+                        AbciRequest::Commit => {
+                            let response = backend.do_commit().await;
+                            sender.send(response.into());
+                        }
+                    }
+                }
+            }
+        });
+
+        Self { sender }
+    }
+
+    pub fn send(
+        &self,
+        backend: Backend,
+        request: impl Into<AbciRequest>,
+    ) -> oneshot::Receiver<AbciResponse> {
+        let (sender, receiver) = oneshot::channel::<AbciResponse>();
+        let _ = self.sender.send((backend, request.into(), sender));
+        receiver
+    }
+}
+
+pub enum AbciRequest {
+    CheckTx(RequestCheckTx),
+    Commit,
+}
+
+impl From<RequestCheckTx> for AbciRequest {
+    fn from(value: RequestCheckTx) -> Self {
+        Self::CheckTx(value)
+    }
+}
+
+pub enum AbciResponse {
+    CheckTx(ResponseCheckTx),
+    Commit(ResponseCommit),
+}
+
+impl From<ResponseCheckTx> for AbciResponse {
+    fn from(value: ResponseCheckTx) -> Self {
+        Self::CheckTx(value)
+    }
+}
+
+impl From<ResponseCommit> for AbciResponse {
+    fn from(value: ResponseCommit) -> Self {
+        Self::Commit(value)
+    }
+}
