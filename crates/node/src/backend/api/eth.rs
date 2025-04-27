@@ -107,7 +107,7 @@ impl EthApi for Backend {
         // Get the account balance.
         let account = state
             .get_account_info(parameter.address)
-            .ok_or(BackendError::AccountDoesNotExist(parameter.address))?;
+            .ok_or(BackendError::AccountDoesNotExist)?;
         Ok(account.balance)
     }
 
@@ -195,7 +195,7 @@ impl EthApi for Backend {
 
         let code = state
             .get_account_info(parameter.address)
-            .ok_or(BackendError::AccountDoesNotExist(parameter.address))?
+            .ok_or(BackendError::AccountDoesNotExist)?
             .code
             .ok_or(BackendError::CodeDoesNotExist)?;
         Ok(code.bytes())
@@ -313,26 +313,26 @@ impl EthApi for Backend {
         &self,
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error> {
-        // Broadcast transactions.
+        // Broacast the transaction.
         let response = self
             .abci_client()
             .broadcast_transaction(parameter.bytes.to_vec())
             .await
             .map_err(BackendError::BroadcastTransaction)?;
 
-        if response.code == 0 {
-            let transaction_hash = match response.hash {
-                Hash::Sha256(value) => B256::from_slice(&value),
-                Hash::None => return Err(BackendError::EmptyTransactionHash),
-            };
-
-            // Notify pubsub service.
-            self.pubsub_service()
-                .publish_pending_transaction(transaction_hash);
-            Ok(transaction_hash)
-        } else {
-            Err(response.code.to_err())
+        if response.code.is_err() {
+            return Err(BackendError::from(response.code.value()));
         }
+
+        if response.hash.is_empty() {
+            return Err(BackendError::InvalidTransactionHash);
+        }
+
+        let transaction_hash = B256::from_slice(response.hash.as_bytes());
+        // // Notify pubsub service.
+        // self.pubsub_service()
+        //     .publish_pending_transaction(transaction_hash);
+        Ok(transaction_hash)
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"

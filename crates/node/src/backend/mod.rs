@@ -12,6 +12,7 @@ use crate::{
 };
 use env::Environments;
 use mandu_abci::client::AbciClient;
+use revm::database::{CacheDB, EmptyDB};
 use std::sync::Arc;
 use storage::Blockchain;
 use tokio::sync::RwLock;
@@ -23,6 +24,7 @@ pub struct Backend {
 #[derive(Default)]
 struct BackendInner {
     environments: RwLock<Environments>,
+    database: RwLock<CacheDB<EmptyDB>>,
     blockchain: RwLock<Blockchain>,
     transaction_pool: RwLock<TransactionPool>,
     pubsub_service: PubSubService,
@@ -50,6 +52,10 @@ impl Default for Backend {
 impl Backend {
     pub fn environments(&self) -> &RwLock<Environments> {
         &self.inner.environments
+    }
+
+    pub fn database(&self) -> &RwLock<CacheDB<EmptyDB>> {
+        &self.inner.database
     }
 
     pub fn blockchain(&self) -> &RwLock<Blockchain> {
