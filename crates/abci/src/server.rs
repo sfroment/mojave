@@ -44,7 +44,7 @@ where
         Ok((home_directory_str.to_owned(), config))
     }
 
-    pub fn start_cometbft_node(
+    fn start_cometbft_node(
         home_directory: impl AsRef<str>,
         proxy_app_address: impl AsRef<str>,
     ) -> JoinHandle<AbciServerError> {
@@ -71,14 +71,18 @@ where
 
     pub fn init(
         home_directory: impl AsRef<Path>,
-        address: impl AsRef<str>,
-        buffer_size: usize,
         backend: T,
     ) -> Result<AbciServerHandle, AbciServerError> {
-        let (home_directory, _config) = Self::init_config(home_directory)?;
+        let (home_directory, config) = Self::init_config(home_directory)?;
+        let max_buffer_size: usize = config
+            .rpc
+            .max_header_bytes
+            .try_into()
+            .map_err(AbciServerError::BufferSize)?;
+        let address = config.proxy_app.to_string();
 
-        let server = ServerBuilder::new(buffer_size)
-            .bind(address.as_ref(), backend)
+        let server = ServerBuilder::new(max_buffer_size)
+            .bind(&address, backend)
             .map_err(AbciServerError::Build)?;
         let server_handle = thread::spawn(move || match server.listen() {
             Ok(()) => return AbciServerError::Server(None),
@@ -136,6 +140,7 @@ pub enum AbciServerError {
     EmptyHomeDirctory,
     Config(tendermint_config::Error),
     TimeoutCommitIsZero,
+    BufferSize(std::num::TryFromIntError),
     Build(tendermint_abci::Error),
     Server(Option<tendermint_abci::Error>),
     CometBft(String),
@@ -150,6 +155,7 @@ impl std::fmt::Debug for AbciServerError {
             Self::EmptyHomeDirctory => write!(f, "Provide CometBFT home directory"),
             Self::Config(error) => write!(f, "CometBFT config error: {}", error),
             Self::TimeoutCommitIsZero => write!(f, "Set timeout_commit to value other than zero"),
+            Self::BufferSize(error) => write!(f, "CometBFT buffer size error: {}", error),
             Self::Build(error) => write!(f, "Failed to build ABCI server: {}", error),
             Self::Server(error) => match error {
                 Some(error) => write!(f, "ABCI server stopped with an error: {}", error),
