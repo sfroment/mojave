@@ -36,13 +36,41 @@ impl AbciApi for Backend {
 
 impl Backend {
     pub async fn check_transaction(&self, request: RequestCheckTx) -> ResponseCheckTx {
-        ResponseCheckTx::default()
+        let mut response = ResponseCheckTx::default();
+        let result = self
+            .evm_client()
+            .send_raw_transaction(request.tx.into())
+            .await
+            .map_err(BackendError::EthApi);
+
+        match result {
+            Ok(result) => {
+                response.code = 0;
+                response.data = result.to_vec().into();
+            }
+            Err(error) => {
+                response.code = 1;
+                response.log = error.to_string();
+            }
+        }
+        response
     }
 
-    // pub async fn request_finalize_block(&self, request)
-
     pub async fn do_commit(&self) -> ResponseCommit {
-        self.driver().mine_one().await;
+        self.evm_client().mine_one().await;
+        // # Safety
+        // Block is guaranteed to exist as long as mine_one() succeeds.
+        let block = self
+            .evm_client()
+            .block_by_number_full(mandu_types::rpc::BlockNumberOrTag::Latest)
+            .await
+            .unwrap();
+
+        if let Some(block) = block {
+            let full_block = block.into_inner();
+            let new_head = full_block.header;
+            self.pubsub_service().publish_new_head(new_head);
+        }
         ResponseCommit::default()
     }
 }

@@ -1,4 +1,5 @@
 use crate::backend::{error::BackendError, Backend};
+use mandu_abci::types::abci::Code;
 use mandu_rpc::api::eth::EthApi;
 use mandu_types::{
     network::{AnyRpcBlock, AnyRpcTransaction},
@@ -11,22 +12,26 @@ impl EthApi for Backend {
 
     /// Returns a list of addresses owned by client.
     async fn accounts(&self) -> Result<Vec<Address>, Self::Error> {
-        self.driver().accounts().map_err(BackendError::EthApi)
+        self.evm_client().accounts().map_err(BackendError::EthApi)
     }
 
     /// Introduced in EIP-4844, returns the current blob base fee in wei.
     async fn blob_base_fee(&self) -> Result<U256, Self::Error> {
-        self.driver().blob_base_fee().map_err(BackendError::EthApi)
+        self.evm_client()
+            .blob_base_fee()
+            .map_err(BackendError::EthApi)
     }
 
     /// Returns the number of most recent block.
     async fn block_number(&self) -> Result<U256, Self::Error> {
-        self.driver().block_number().map_err(BackendError::EthApi)
+        self.evm_client()
+            .block_number()
+            .map_err(BackendError::EthApi)
     }
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     async fn call(&self, parameter: EthCall) -> Result<Bytes, Self::Error> {
-        self.driver()
+        self.evm_client()
             .call(
                 parameter.request.into(),
                 parameter.block_number,
@@ -38,7 +43,7 @@ impl EthApi for Backend {
 
     /// Returns the chain ID of the current network.
     async fn chain_id(&self) -> Result<Option<U64>, Self::Error> {
-        Ok(Some(U64::from(self.driver().chain_id())))
+        Ok(Some(U64::from(self.evm_client().chain_id())))
     }
 
     /// Returns the client coinbase address.
@@ -64,7 +69,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthCreateAccessList,
     ) -> Result<AccessListResult, Self::Error> {
-        self.driver()
+        self.evm_client()
             .create_access_list(parameter.request, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -73,7 +78,7 @@ impl EthApi for Backend {
     /// Generates and returns an estimate of how much gas is necessary to allow the transaction to
     /// complete.
     async fn estimate_gas(&self, parameter: EthEstimateGas) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .estimate_gas(
                 parameter.request,
                 parameter.block_number,
@@ -91,7 +96,7 @@ impl EthApi for Backend {
     /// requested/supported block range. The returned Fee history for the returned block range
     /// can be a subsection of the requested range if not all blocks are available.
     async fn fee_history(&self, parameter: EthFeeHistory) -> Result<FeeHistory, Self::Error> {
-        self.driver()
+        self.evm_client()
             .fee_history(
                 U256::from(parameter.block_count),
                 parameter.newest_block,
@@ -103,13 +108,13 @@ impl EthApi for Backend {
 
     /// Returns the current price per gas in wei.
     async fn gas_price(&self) -> Result<U256, Self::Error> {
-        let gas_price = self.driver().gas_price();
+        let gas_price = self.evm_client().gas_price();
         Ok(U256::from(gas_price))
     }
 
     /// Returns the balance of the account of given address.
     async fn get_balance(&self, parameter: EthGetBalance) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .balance(parameter.address, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -120,7 +125,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockByHash,
     ) -> Result<Option<AnyRpcBlock>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_by_hash(parameter.hash)
             .await
             .map_err(BackendError::EthApi)
@@ -131,7 +136,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockByNumber,
     ) -> Result<Option<AnyRpcBlock>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_by_number(parameter.number)
             .await
             .map_err(BackendError::EthApi)
@@ -142,7 +147,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthBlockReceipts,
     ) -> Result<Option<Vec<TransactionReceipt<TypedReceipt<Receipt<Log>>>>>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_receipts(parameter.block_id)
             .await
             .map_err(BackendError::EthApi)
@@ -153,7 +158,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockTransactionCountByHash,
     ) -> Result<Option<U256>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_transaction_count_by_hash(parameter.hash)
             .await
             .map_err(BackendError::EthApi)
@@ -164,7 +169,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetBlockTransactionCountByNumber,
     ) -> Result<Option<U256>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_transaction_count_by_number(parameter.number)
             .await
             .map_err(BackendError::EthApi)
@@ -172,7 +177,7 @@ impl EthApi for Backend {
 
     /// Returns code at a given address at given block number.
     async fn get_code(&self, parameter: EthGetCode) -> Result<Bytes, Self::Error> {
-        self.driver()
+        self.evm_client()
             .get_code(parameter.address, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -184,7 +189,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetProof,
     ) -> Result<EIP1186AccountProofResponse, Self::Error> {
-        self.driver()
+        self.evm_client()
             .get_proof(parameter.address, parameter.keys, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -192,7 +197,7 @@ impl EthApi for Backend {
 
     /// Returns the value from a storage position at a given address
     async fn get_storage_at(&self, parameter: EthGetStorageAt) -> Result<B256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .storage_at(parameter.address, parameter.index, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -203,7 +208,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionByBlockHashAndIndex,
     ) -> Result<Option<AnyRpcTransaction>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .transaction_by_block_hash_and_index(parameter.hash, parameter.index)
             .await
             .map_err(BackendError::EthApi)
@@ -214,7 +219,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionByBlockNumberAndIndex,
     ) -> Result<Option<AnyRpcTransaction>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .transaction_by_block_number_and_index(parameter.number, parameter.index)
             .await
             .map_err(BackendError::EthApi)
@@ -225,7 +230,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthgetTransactionByHash,
     ) -> Result<Option<AnyRpcTransaction>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .transaction_by_hash(parameter.hash)
             .await
             .map_err(BackendError::EthApi)
@@ -236,7 +241,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionCount,
     ) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .transaction_count(parameter.address, parameter.block_number)
             .await
             .map_err(BackendError::EthApi)
@@ -247,7 +252,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetTransactionReceipt,
     ) -> Result<Option<TransactionReceipt<TypedReceipt<Receipt<Log>>>>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .transaction_receipt(parameter.hash)
             .await
             .map_err(BackendError::EthApi)
@@ -258,7 +263,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetUncleCountByBlockHash,
     ) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_uncles_count_by_hash(parameter.hash)
             .await
             .map_err(BackendError::EthApi)
@@ -269,7 +274,7 @@ impl EthApi for Backend {
         &self,
         parameter: EthGetUncleCountByBlockNumber,
     ) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .block_uncles_count_by_number(parameter.number)
             .await
             .map_err(BackendError::EthApi)
@@ -277,7 +282,7 @@ impl EthApi for Backend {
 
     /// Introduced in EIP-1559, returns suggestion for the priority for dynamic fee transactions.
     async fn max_priority_fee_per_gas(&self) -> Result<U256, Self::Error> {
-        self.driver()
+        self.evm_client()
             .max_priority_fee_per_gas()
             .map_err(BackendError::EthApi)
     }
@@ -288,33 +293,27 @@ impl EthApi for Backend {
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error> {
         // Broacast the transaction.
-
         let response = self
             .abci_client()
             .broadcast_transaction(parameter.bytes.to_vec())
             .await
-            .map_err(BackendError::BroadcastTransaction)?;
+            .map_err(BackendError::Broadcast)?;
 
-        // if response.code.is_err() {
-        //     return Err(BackendError::from(response.code.value()));
-        // }
-
-        // if response.hash.is_empty() {
-        //     return Err(BackendError::InvalidTransactionHash);
-        // }
-
-        // let transaction_hash = B256::from_slice(response.hash.as_bytes());
-        // // // Notify pubsub service.
-        // // self.pubsub_service()
-        // //     .publish_pending_transaction(transaction_hash);
-        // Ok(transaction_hash)
-        Err(BackendError::Unimplemented)
+        match response.code {
+            Code::Ok => {
+                let transaction_hash = B256::from_slice(&response.data.to_vec());
+                self.pubsub_service()
+                    .publish_pending_transaction(transaction_hash);
+                Ok(transaction_hash)
+            }
+            Code::Err(_) => Err(BackendError::CheckTx(response.log)),
+        }
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
     async fn sign(&self, parameter: EthSign) -> Result<String, Self::Error> {
-        self.driver()
+        self.evm_client()
             .sign(parameter.address, parameter.message)
             .await
             .map_err(BackendError::EthApi)
@@ -323,7 +322,7 @@ impl EthApi for Backend {
     /// Signs a transaction that can be submitted to the network at a later time using with
     /// `sendRawTransaction.`
     async fn sign_transaction(&self, parameter: EthSignTransaction) -> Result<String, Self::Error> {
-        self.driver()
+        self.evm_client()
             .sign_transaction(parameter.transaction)
             .await
             .map_err(BackendError::EthApi)
@@ -331,6 +330,6 @@ impl EthApi for Backend {
 
     /// Returns an object with data about the sync status or false.
     async fn syncing(&self) -> Result<bool, Self::Error> {
-        self.driver().syncing().map_err(BackendError::EthApi)
+        self.evm_client().syncing().map_err(BackendError::EthApi)
     }
 }

@@ -1,7 +1,10 @@
 use crate::backend::Backend;
 use futures::{channel::oneshot, Stream, StreamExt};
 use mandu_abci::types::{RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit};
-use mandu_types::rpc::{Filter, Header, Log, TransactionHash};
+use mandu_types::{
+    network::AnyHeader,
+    rpc::{Filter, Header, Log, TransactionHash},
+};
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -12,7 +15,7 @@ use tokio_stream::wrappers::BroadcastStream;
 pub const QUEUE_LIMIT: usize = 100;
 
 pub struct PubSubService {
-    new_heads: broadcast::Sender<Header>,
+    new_heads: broadcast::Sender<Header<AnyHeader>>,
     logs: broadcast::Sender<Log>,
     pending_transaction: broadcast::Sender<TransactionHash>,
 }
@@ -40,7 +43,7 @@ impl PubSubService {
         self.pending_transaction.subscribe().into()
     }
 
-    pub fn publish_new_head(&self, new_head: Header) {
+    pub fn publish_new_head(&self, new_head: Header<AnyHeader>) {
         let _ = self.new_heads.send(new_head);
     }
 
@@ -49,16 +52,16 @@ impl PubSubService {
     }
 }
 
-pub struct NewHeadsStream(BroadcastStream<Header>);
+pub struct NewHeadsStream(BroadcastStream<Header<AnyHeader>>);
 
-impl From<broadcast::Receiver<Header>> for NewHeadsStream {
-    fn from(value: broadcast::Receiver<Header>) -> Self {
+impl From<broadcast::Receiver<Header<AnyHeader>>> for NewHeadsStream {
+    fn from(value: broadcast::Receiver<Header<AnyHeader>>) -> Self {
         Self(value.into())
     }
 }
 
 impl Stream for NewHeadsStream {
-    type Item = Header;
+    type Item = Header<AnyHeader>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();

@@ -7,7 +7,7 @@ impl EthFilterApi for Backend {
 
     /// Returns all filter changes since last poll.
     async fn get_filter_changes(&self, id: String) -> Result<FilterChanges, Self::Error> {
-        match self.driver().get_filter_changes(&id).await {
+        match self.evm_client().get_filter_changes(&id).await {
             ResponseResult::Success(value) => {
                 let response =
                     serde_json::from_value(value).map_err(|_| BackendError::EthFilterResponse)?;
@@ -19,7 +19,7 @@ impl EthFilterApi for Backend {
 
     /// Returns all logs matching given filter (in a range 'from' - 'to').
     async fn get_filter_logs(&self, id: String) -> Result<Vec<Log>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .get_filter_logs(&id)
             .await
             .map_err(BackendError::EthApi)
@@ -27,7 +27,7 @@ impl EthFilterApi for Backend {
 
     /// Returns logs matching given filter object.
     async fn get_logs(&self, filter: Filter) -> Result<Vec<Log>, Self::Error> {
-        self.driver()
+        self.evm_client()
             .logs(filter)
             .await
             .map_err(BackendError::EthApi)
@@ -35,7 +35,7 @@ impl EthFilterApi for Backend {
 
     /// Creates a new block filter and returns its id.
     async fn new_block_filter(&self) -> Result<String, Self::Error> {
-        self.driver()
+        self.evm_client()
             .new_block_filter()
             .await
             .map_err(BackendError::EthApi)
@@ -43,7 +43,7 @@ impl EthFilterApi for Backend {
 
     /// Creates a new filter and returns its id.
     async fn new_filter(&self, filter: Filter) -> Result<String, Self::Error> {
-        self.driver()
+        self.evm_client()
             .new_filter(filter)
             .await
             .map_err(BackendError::EthApi)
@@ -51,7 +51,7 @@ impl EthFilterApi for Backend {
 
     /// Creates a pending transaction filter and returns its id.
     async fn new_pending_transaction_filter(&self) -> Result<String, Self::Error> {
-        self.driver()
+        self.evm_client()
             .new_pending_transaction_filter()
             .await
             .map_err(BackendError::EthApi)
@@ -59,7 +59,7 @@ impl EthFilterApi for Backend {
 
     /// Uninstalls the filter.
     async fn uninstall_filter(&self, id: String) -> Result<bool, Self::Error> {
-        self.driver()
+        self.evm_client()
             .uninstall_filter(&id)
             .await
             .map_err(BackendError::EthApi)
