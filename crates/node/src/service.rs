@@ -1,6 +1,6 @@
 use crate::backend::Backend;
 use futures::{channel::oneshot, Stream, StreamExt};
-use mandu_abci::types::{RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit};
+use mandu_abci::types::{RequestCheckTx, ResponseCheckTx, ResponseCommit};
 use mandu_types::{
     network::AnyHeader,
     rpc::{Filter, Header, Log, TransactionHash},
@@ -144,11 +144,11 @@ impl AbciService {
                     match request {
                         AbciRequest::CheckTx(request) => {
                             let response = backend.check_transaction(request).await;
-                            sender.send(response.into());
+                            let _ = sender.send(response.into());
                         }
                         AbciRequest::Commit => {
                             let response = backend.do_commit().await;
-                            sender.send(response.into());
+                            let _ = sender.send(response.into());
                         }
                     }
                 }
