@@ -4,46 +4,52 @@ pub mod service;
 
 use backend::{error::BackendError, Backend};
 use futures::FutureExt;
-use mandu_abci::server::{AbciServer, AbciServerError, AbciServerHandle};
+use mandu_abci::{
+    client::{AbciClient, AbciClientError},
+    server::{AbciServer, AbciServerError, AbciServerHandle},
+};
 use mandu_rpc::{
     config::RpcConfig,
     error::RpcServerError,
     server::{RpcServer, RpcServerHandle},
 };
 use std::{
+    env,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
-const HOME_DIRECTORY: &str = "/home/kanet/Projects/rs-mandu/cometbft";
-const APP_ADDRESS: &str = "127.0.0.1:26658";
-const BUFFER_SIZE: usize = 1048576;
-const RPC_ADDRESS: &str = "127.0.0.1:8545";
-const WEBSOCKET_ADDRESS: &str = "127.0.0.1:8546";
-
-pub struct ManduNode {
-    backend: Backend,
-}
+pub struct ManduNode;
 
 impl ManduNode {
-    pub async fn init(self) -> Result<ManduNodeHandle, ManduNodeError> {
-        let abci_server_handle = AbciServer::init(
-            HOME_DIRECTORY,
-            APP_ADDRESS,
-            BUFFER_SIZE,
-            self.backend.clone(),
-        )?;
+    pub async fn init() -> Result<ManduNodeHandle, ManduNodeError> {
+        // TODO: replace it with clap parser for advance CLI.
+        let arguments: Vec<String> = env::args().skip(1).collect();
+        let home_directory = arguments.first().expect("Provide the home directory");
 
-        let rpc_config = RpcConfig {
-            rpc_address: RPC_ADDRESS.to_owned(),
-            websocket_address: WEBSOCKET_ADDRESS.to_owned(),
-        };
-        let rpc_server_handle = RpcServer::init(&rpc_config, self.backend).await?;
+        // Initialize anvil backend.
+        let node_config = anvil::NodeConfig::empty_state();
+        let (evm_client, evm_client_handle) = anvil::try_spawn(node_config).await.unwrap();
+
+        // Initialize ABCI configuration and client.
+        let abci_config = AbciServer::<Backend>::init_config(home_directory)?;
+        let abci_client = AbciClient::new(abci_config.rpc.laddr.to_string())?;
+
+        // Initialize the backend.
+        let backend = Backend::init(evm_client, abci_client);
+
+        // Initialize ABCI server.
+        let abci_server_handle = AbciServer::init(home_directory, abci_config, backend.clone())?;
+
+        // Initialize RPC server.
+        let rpc_config = RpcConfig::default();
+        let rpc_server_handle = RpcServer::init(&rpc_config, backend).await?;
 
         let handle = ManduNodeHandle {
             abci_server: abci_server_handle,
             rpc_server: rpc_server_handle,
+            evm_client_handle: evm_client_handle,
         };
         Ok(handle)
     }
@@ -52,6 +58,8 @@ impl ManduNode {
 pub struct ManduNodeHandle {
     abci_server: AbciServerHandle,
     rpc_server: RpcServerHandle,
+    #[allow(unused)]
+    evm_client_handle: anvil::NodeHandle,
 }
 
 impl Future for ManduNodeHandle {
@@ -74,7 +82,8 @@ impl Future for ManduNodeHandle {
 
 #[derive(Debug)]
 pub enum ManduNodeError {
-    Abci(AbciServerError),
+    AbciServer(AbciServerError),
+    AbciClient(AbciClientError),
     Rpc(RpcServerError),
     Backend(BackendError),
 }
@@ -89,7 +98,13 @@ impl std::error::Error for ManduNodeError {}
 
 impl From<AbciServerError> for ManduNodeError {
     fn from(value: AbciServerError) -> Self {
-        Self::Abci(value)
+        Self::AbciServer(value)
+    }
+}
+
+impl From<AbciClientError> for ManduNodeError {
+    fn from(value: AbciClientError) -> Self {
+        Self::AbciClient(value)
     }
 }
 
