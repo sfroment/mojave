@@ -3,7 +3,7 @@ use futures::FutureExt;
 use std::{
     future::Future,
     marker::PhantomData,
-    path::Path,
+    path::PathBuf,
     pin::Pin,
     task::{Context, Poll},
     thread::{self, JoinHandle as ThreadJoinHandle},
@@ -23,25 +23,22 @@ impl<T> AbciServer<T>
 where
     T: AbciApi,
 {
-    fn init_config(
-        home_directory: impl AsRef<Path>,
-    ) -> Result<(String, TendermintConfig), AbciServerError> {
-        let home_directory_str = home_directory
-            .as_ref()
-            .to_str()
-            .ok_or(AbciServerError::EmptyHomeDirctory)?;
-
+    pub fn init_config(
+        home_directory: impl AsRef<str>,
+    ) -> Result<TendermintConfig, AbciServerError> {
         let mut cometbft_node = Command::new("cometbft");
-        cometbft_node.args(["init", "--home", home_directory_str]);
+        cometbft_node.args(["init", "--home", home_directory.as_ref()]);
 
-        let config_path = home_directory.as_ref().join("config").join("config.toml");
+        let config_path = PathBuf::from(home_directory.as_ref())
+            .join("config")
+            .join("config.toml");
         let config =
             TendermintConfig::load_toml_file(&config_path).map_err(AbciServerError::Config)?;
         if config.consensus.timeout_commit.as_secs() == 0 {
             return Err(AbciServerError::TimeoutCommitIsZero);
         }
 
-        Ok((home_directory_str.to_owned(), config))
+        Ok(config)
     }
 
     fn start_cometbft_node(
@@ -70,10 +67,10 @@ where
     }
 
     pub fn init(
-        home_directory: impl AsRef<Path>,
+        home_directory: impl AsRef<str>,
+        config: TendermintConfig,
         backend: T,
     ) -> Result<AbciServerHandle, AbciServerError> {
-        let (home_directory, config) = Self::init_config(home_directory)?;
         let max_buffer_size: usize = config
             .rpc
             .max_header_bytes
@@ -137,7 +134,6 @@ impl Future for AbciServerHandle {
 }
 
 pub enum AbciServerError {
-    EmptyHomeDirctory,
     Config(tendermint_config::Error),
     TimeoutCommitIsZero,
     BufferSize(std::num::TryFromIntError),
@@ -152,7 +148,6 @@ pub enum AbciServerError {
 impl std::fmt::Debug for AbciServerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EmptyHomeDirctory => write!(f, "Provide CometBFT home directory"),
             Self::Config(error) => write!(f, "CometBFT config error: {}", error),
             Self::TimeoutCommitIsZero => write!(f, "Set timeout_commit to value other than zero"),
             Self::BufferSize(error) => write!(f, "CometBFT buffer size error: {}", error),
