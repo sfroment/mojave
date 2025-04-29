@@ -1,4 +1,4 @@
-use mandu_types::rpc::{Filter, FilterChanges, FilterId, Log};
+use mandu_types::rpc::{Filter, FilterChanges, Log};
 
 #[trait_variant::make(EthFilterApi: Send)]
 pub trait LocalEthFilterApi: Clone + Send + Sync + 'static {
