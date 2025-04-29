@@ -1,8 +1,8 @@
 use std::str::FromStr;
 use tendermint_rpc::{
+    HttpClientUrl,
     client::{Client, CompatMode, HttpClient},
     endpoint::broadcast::tx_sync::Response,
-    HttpClientUrl,
 };
 
 pub struct AbciClient {
@@ -17,13 +17,11 @@ impl Default for AbciClient {
 
 impl AbciClient {
     pub fn new(tendermint_rpc_url: impl AsRef<str>) -> Result<Self, AbciClientError> {
-        let rpc_url = HttpClientUrl::from_str(tendermint_rpc_url.as_ref())
-            .map_err(AbciClientError::InvalidURL)?;
+        let rpc_url = HttpClientUrl::from_str(tendermint_rpc_url.as_ref())?;
 
         let client = HttpClient::builder(rpc_url)
             .compat_mode(CompatMode::V0_38)
-            .build()
-            .map_err(AbciClientError::Build)?;
+            .build()?;
 
         Ok(Self { client })
     }
@@ -35,15 +33,16 @@ impl AbciClient {
         self.client
             .broadcast_tx_sync(transaction)
             .await
-            .map_err(AbciClientError::BroadcastTransaction)
+            .map_err(|error| error.into())
     }
 }
 
-#[derive(Debug)]
-pub enum AbciClientError {
-    InvalidURL(tendermint_rpc::Error),
-    Build(tendermint_rpc::Error),
-    BroadcastTransaction(tendermint_rpc::Error),
+pub struct AbciClientError(tendermint_rpc::Error);
+
+impl std::fmt::Debug for AbciClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 impl std::fmt::Display for AbciClientError {
@@ -53,3 +52,9 @@ impl std::fmt::Display for AbciClientError {
 }
 
 impl std::error::Error for AbciClientError {}
+
+impl From<tendermint_rpc::Error> for AbciClientError {
+    fn from(value: tendermint_rpc::Error) -> Self {
+        Self(value)
+    }
+}
