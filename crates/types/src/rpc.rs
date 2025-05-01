@@ -132,6 +132,11 @@ pub struct EthSendRawTransaction {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct EthSendTransaction {
+    pub transaction: WithOtherFields<TransactionRequest>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct EthSign {
     pub address: Address,
     pub message: Bytes,
