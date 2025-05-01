@@ -173,6 +173,7 @@ where
         rpc_module
             .register_async_method("eth_maxPriorityFeePerGas", Self::max_priority_fee_per_gas)?;
         rpc_module.register_async_method("eth_sendRawTransaction", Self::send_raw_transaction)?;
+        rpc_module.register_async_method("eth_sendTransaction", Self::send_transaction)?;
         rpc_module.register_async_method("eth_sign", Self::sign)?;
         rpc_module.register_async_method("eth_signTransaction", Self::sign_transaction)?;
         rpc_module.register_async_method("eth_syncing", Self::syncing)?;
@@ -489,6 +490,16 @@ where
             .send_raw_transaction(parameter)
             .await
             .into_rpc_result()
+    }
+
+    /// Handler for [EthApi::send_transaction]
+    async fn send_transaction(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<B256> {
+        let parameter = parameter.parse::<EthSendTransaction>()?;
+        backend.send_transaction(parameter).await.into_rpc_result()
     }
 
     /// Handler for [EthApi::sign]

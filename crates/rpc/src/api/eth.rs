@@ -158,6 +158,10 @@ pub trait LocalEthApi: Clone + Send + Sync + 'static {
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error>;
 
+    /// Signs transaction with a matching signer, if any and submits the transaction to the pool.
+    /// Returns the hash of the signed transaction.
+    async fn send_transaction(&self, parameter: EthSendTransaction) -> Result<B256, Self::Error>;
+
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
     /// + len(message) + message))).
     async fn sign(&self, parameter: EthSign) -> Result<String, Self::Error>;
