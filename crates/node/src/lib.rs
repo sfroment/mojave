@@ -1,5 +1,4 @@
 pub mod backend;
-pub mod pool;
 pub mod service;
 
 use backend::{error::BackendError, Backend};

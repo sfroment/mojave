@@ -5,7 +5,8 @@ use mandu_abci::types::{
 };
 use mandu_types::{
     network::AnyHeader,
-    rpc::{Filter, Header, Log, TransactionHash},
+    primitives::B256,
+    rpc::{Filter, Header, Log},
 };
 use std::{
     pin::Pin,
@@ -19,7 +20,7 @@ pub const QUEUE_LIMIT: usize = 100;
 pub struct PubSubService {
     new_heads: broadcast::Sender<Header<AnyHeader>>,
     logs: broadcast::Sender<Log>,
-    pending_transaction: broadcast::Sender<TransactionHash>,
+    pending_transaction: broadcast::Sender<B256>,
 }
 
 impl Default for PubSubService {
@@ -49,7 +50,7 @@ impl PubSubService {
         let _ = self.new_heads.send(new_head);
     }
 
-    pub fn publish_pending_transaction(&self, transaction_hash: TransactionHash) {
+    pub fn publish_pending_transaction(&self, transaction_hash: B256) {
         let _ = self.pending_transaction.send(transaction_hash);
     }
 }
@@ -106,16 +107,16 @@ impl Stream for LogsStream {
     }
 }
 
-pub struct PendingTransactionStream(BroadcastStream<TransactionHash>);
+pub struct PendingTransactionStream(BroadcastStream<B256>);
 
-impl From<broadcast::Receiver<TransactionHash>> for PendingTransactionStream {
-    fn from(value: broadcast::Receiver<TransactionHash>) -> Self {
+impl From<broadcast::Receiver<B256>> for PendingTransactionStream {
+    fn from(value: broadcast::Receiver<B256>) -> Self {
         Self(value.into())
     }
 }
 
 impl Stream for PendingTransactionStream {
-    type Item = TransactionHash;
+    type Item = B256;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();

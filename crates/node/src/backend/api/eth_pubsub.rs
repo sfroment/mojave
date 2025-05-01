@@ -3,7 +3,8 @@ use futures::stream::Stream;
 use mandu_rpc::api::eth_pubsub::EthPubSubApi;
 use mandu_types::{
     network::AnyHeader,
-    rpc::{Filter, Header, Log, TransactionHash},
+    primitives::B256,
+    rpc::{Filter, Header, Log},
 };
 
 impl EthPubSubApi for Backend {
@@ -15,7 +16,7 @@ impl EthPubSubApi for Backend {
         self.pubsub_service().subscribe_logs(filter)
     }
 
-    fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = TransactionHash> + Unpin {
+    fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = B256> + Unpin {
         self.pubsub_service().subscribe_new_pending_transaction()
     }
 }
