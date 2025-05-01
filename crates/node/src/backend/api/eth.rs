@@ -1,5 +1,5 @@
 use crate::backend::{error::BackendError, Backend};
-use mandu_abci::types::abci::Code;
+// use mandu_abci::types::abci::Code;
 use mandu_rpc::api::eth::EthApi;
 use mandu_types::{
     network::{AnyRpcBlock, AnyRpcTransaction},
@@ -32,11 +32,7 @@ impl EthApi for Backend {
     /// Executes a new message call immediately without creating a transaction on the block chain.
     async fn call(&self, parameter: EthCall) -> Result<Bytes, Self::Error> {
         self.evm_client()
-            .call(
-                parameter.request.into(),
-                parameter.block_number,
-                parameter.state_overrides,
-            )
+            .call(parameter.request.into(), parameter.block_number, None)
             .await
             .map_err(BackendError::EthApi)
     }
@@ -292,29 +288,45 @@ impl EthApi for Backend {
         &self,
         parameter: EthSendRawTransaction,
     ) -> Result<B256, Self::Error> {
-        // Broacast the transaction.
-        let response = self
-            .abci_client()
-            .broadcast_transaction(parameter.bytes.to_vec())
+        // // Broacast the transaction.
+        // let response = self
+        //     .abci_client()
+        //     .broadcast_transaction(parameter.bytes.to_vec())
+        //     .await
+        //     .map_err(BackendError::Broadcast)?;
+        // match response.code {
+        //     Code::Ok => {
+        //         self.pubsub_service()
+        //             .publish_pending_transaction(transaction_hash);
+        //         Ok(transaction_hash)
+        //     }
+        //     Code::Err(_) => Err(BackendError::CheckTx(response.log)),
+        // }
+        self.evm_client()
+            .send_raw_transaction(parameter.bytes.clone())
             .await
-            .map_err(BackendError::Broadcast)?;
-
-        match response.code {
-            Code::Ok => {
-                let transaction_hash = B256::from_slice(&response.data.to_vec());
-                self.pubsub_service()
-                    .publish_pending_transaction(transaction_hash);
-                Ok(transaction_hash)
-            }
-            Code::Err(_) => Err(BackendError::CheckTx(response.log)),
-        }
+            .map_err(BackendError::EthApi)
     }
 
     /// Signs transaction with a matching signer, if any and submits the transaction to the pool.
     /// Returns the hash of the signed transaction.
     async fn send_transaction(&self, parameter: EthSendTransaction) -> Result<B256, Self::Error> {
+        // // Broacast the transaction.
+        // let response = self
+        //     .abci_client()
+        //     .broadcast_transaction(serde_json::to_vec(&parameter.transaction).unwrap())
+        //     .await
+        //     .map_err(BackendError::Broadcast)?;
+        // match response.code {
+        //     Code::Ok => {
+        //         self.pubsub_service()
+        //             .publish_pending_transaction(transaction_hash);
+        //         Ok(transaction_hash)
+        //     }
+        //     Code::Err(_) => Err(BackendError::CheckTx(response.log)),
+        // }
         self.evm_client()
-            .send_transaction(parameter.transaction)
+            .send_transaction(parameter.transaction.clone())
             .await
             .map_err(BackendError::EthApi)
     }

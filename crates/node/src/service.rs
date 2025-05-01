@@ -1,6 +1,8 @@
 use crate::backend::Backend;
 use futures::{Stream, StreamExt};
-use mandu_abci::types::{RequestCheckTx, ResponseCheckTx, ResponseCommit};
+use mandu_abci::types::{
+    RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit, ResponseFinalizeBlock,
+};
 use mandu_types::{
     network::AnyHeader,
     rpc::{Filter, Header, Log, TransactionHash},
@@ -146,6 +148,10 @@ impl AbciService {
                             let response = backend.check_transaction(request).await;
                             sender.send(response.into()).unwrap();
                         }
+                        AbciRequest::FinalizeBlock(request) => {
+                            let response = backend.do_finalize_block(request).await;
+                            sender.send(response.into()).unwrap();
+                        }
                         AbciRequest::Commit => {
                             let response = backend.do_commit().await;
                             sender.send(response.into()).unwrap();
@@ -172,6 +178,7 @@ impl AbciService {
 #[derive(Debug)]
 pub enum AbciRequest {
     CheckTx(RequestCheckTx),
+    FinalizeBlock(RequestFinalizeBlock),
     Commit,
 }
 
@@ -181,15 +188,28 @@ impl From<RequestCheckTx> for AbciRequest {
     }
 }
 
+impl From<RequestFinalizeBlock> for AbciRequest {
+    fn from(value: RequestFinalizeBlock) -> Self {
+        Self::FinalizeBlock(value)
+    }
+}
+
 #[derive(Debug)]
 pub enum AbciResponse {
     CheckTx(ResponseCheckTx),
+    FinalizeBlock(ResponseFinalizeBlock),
     Commit(ResponseCommit),
 }
 
 impl From<ResponseCheckTx> for AbciResponse {
     fn from(value: ResponseCheckTx) -> Self {
         Self::CheckTx(value)
+    }
+}
+
+impl From<ResponseFinalizeBlock> for AbciResponse {
+    fn from(value: ResponseFinalizeBlock) -> Self {
+        Self::FinalizeBlock(value)
     }
 }
 

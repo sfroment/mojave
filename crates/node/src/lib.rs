@@ -36,7 +36,12 @@ impl ManduNode {
 
         // Initialize ABCI configuration and client.
         let abci_config = AbciServer::<Backend>::init_config(home_directory)?;
-        let abci_client = AbciClient::new(abci_config.rpc.laddr.to_string())?;
+        let abci_rpc_address = {
+            let rpc_address = abci_config.rpc.laddr.to_string();
+            let (_, address) = rpc_address.split_once("://").unwrap();
+            format!("http://{}", address)
+        };
+        let abci_client = AbciClient::new(abci_rpc_address)?;
 
         // Initialize the backend.
         let backend = Backend::init(evm_client, abci_client);
