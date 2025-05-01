@@ -1,7 +1,8 @@
 use futures::stream::Stream;
 use mandu_types::{
     network::AnyHeader,
-    rpc::{Filter, Header, Log, TransactionHash},
+    primitives::B256,
+    rpc::{Filter, Header, Log},
 };
 
 #[trait_variant::make(EthPubSubApi: Send)]
@@ -10,5 +11,5 @@ pub trait LocalEthPubSubApi: Clone + Send + Sync + 'static {
 
     fn subscribe_logs(&self, filter: Option<Box<Filter>>) -> impl Stream<Item = Log> + Unpin;
 
-    fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = TransactionHash> + Unpin;
+    fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = B256> + Unpin;
 }
