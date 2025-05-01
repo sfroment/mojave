@@ -2,8 +2,8 @@ use serde::{Deserialize, de::Error};
 use std::path::{Path, PathBuf};
 use tendermint::{Moniker, Timeout, node::Id};
 use tendermint_config::{
-    AbciMode, CorsHeader, CorsMethod, CorsOrigin, DbBackend, LogFormat, LogLevel, TransferRate,
-    TxIndexer, net::Address,
+    AbciMode, CorsHeader, CorsMethod, CorsOrigin, LogFormat, LogLevel, TransferRate, TxIndexer,
+    net::Address,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -40,15 +40,28 @@ impl CometBftConfig {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum DbBackend {
+    #[serde(rename = "badgerdb")]
+    BadgerDb,
+    #[serde(rename = "goleveldb")]
+    GoLevelDb,
+    #[serde(rename = "pebbledb")]
+    PebbleDb,
+    #[serde(rename = "rocksdb")]
+    RocksDb,
+    #[serde(rename = "cleveldb")]
+    ClevelDb,
+    #[serde(rename = "boltdb")]
+    BoltDb,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Rpc {
     pub laddr: Address,
     pub cors_allowed_origins: Vec<CorsOrigin>,
     pub cors_allowed_methods: Vec<CorsMethod>,
     pub cors_allowed_headers: Vec<CorsHeader>,
-    #[serde(deserialize_with = "deserialize_optional_value")]
-    pub grpc_laddr: Option<Address>,
-    pub grpc_max_open_connections: u64,
     #[serde(rename = "unsafe")]
     pub unsafe_commands: bool,
     pub max_open_connections: u64,
@@ -67,6 +80,43 @@ pub struct Rpc {
     pub tls_key_file: Option<PathBuf>,
     #[serde(deserialize_with = "deserialize_optional_value")]
     pub pprof_laddr: Option<Address>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Grpc {
+    #[serde(deserialize_with = "deserialize_optional_value")]
+    pub laddr: Option<Address>,
+    pub version_service: GrpcVersionService,
+    pub block_service: GrpcBlockService,
+    pub block_results_service: GrpcBlockResultsService,
+    pub privileged: GrpcPrivileged,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GrpcVersionService {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GrpcBlockService {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GrpcBlockResultsService {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct GrpcPrivileged {
+    #[serde(deserialize_with = "deserialize_optional_value")]
+    pub laddr: Option<Address>,
+    pub pruning_service: PruningService,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct PruningService {
+    pub enabled: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -101,21 +151,28 @@ pub struct P2p {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Mempool {
     #[serde(rename = "type")]
-    pub mempool_type: String,
+    pub mempool_type: MempoolType,
     pub recheck: bool,
     pub recheck_timeout: Timeout,
     pub broadcast: bool,
     #[serde(deserialize_with = "deserialize_optional_value")]
     pub wal_dir: Option<PathBuf>,
     pub size: u64,
+    pub max_tx_bytes: u64,
     pub max_txs_bytes: u64,
     pub cache_size: u64,
     #[serde(rename = "keep-invalid-txs-in-cache")]
     pub keep_invalid_txs_in_cache: bool,
-    pub max_tx_bytes: u64,
-    pub max_batch_bytes: u64,
     pub experimental_max_gossip_connections_to_persistent_peers: u64,
     pub experimental_max_gossip_connections_to_non_persistent_peers: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub enum MempoolType {
+    #[serde(rename = "flood")]
+    Flood,
+    #[serde(rename = "nop")]
+    Nop,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -158,6 +215,31 @@ pub struct Consensus {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Storage {
     pub discard_abci_responses: bool,
+    pub experimental_db_key_layout: DbKeyLayout,
+    pub compact: bool,
+    pub compaction_interval: String,
+    pub pruning: StoragePruning,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum DbKeyLayout {
+    #[serde(rename = "v1")]
+    V1,
+    #[serde(rename = "v2")]
+    V2,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct StoragePruning {
+    pub interval: Timeout,
+    pub data_companion: StoragePruningDataCompanion,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct StoragePruningDataCompanion {
+    pub enabled: bool,
+    pub initial_block_retain_height: u64,
+    pub initial_block_results_retain_height: u64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
