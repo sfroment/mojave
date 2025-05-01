@@ -11,8 +11,8 @@ use state::StateOverride;
 pub struct EthCall {
     pub request: WithOtherFields<TransactionRequest>,
     pub block_number: Option<BlockId>,
-    pub state_overrides: Option<StateOverride>,
-    pub block_overrides: Option<Box<BlockOverrides>>,
+    // pub state_overrides: Option<StateOverride>,
+    // pub block_overrides: Option<Box<BlockOverrides>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
