@@ -86,6 +86,7 @@ dependencies = [
  "alloy-json-rpc",
  "alloy-network",
  "alloy-provider",
+ "alloy-pubsub",
  "alloy-rpc-client",
  "alloy-rpc-types",
  "alloy-serde",
@@ -93,6 +94,8 @@ dependencies = [
  "alloy-signer-local",
  "alloy-transport",
  "alloy-transport-http",
+ "alloy-transport-ipc",
+ "alloy-transport-ws",
 ]
 
 [[package]]
@@ -386,9 +389,11 @@ dependencies = [
  "alloy-primitives",
  "alloy-pubsub",
  "alloy-rpc-client",
+ "alloy-rpc-types-anvil",
  "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",
  "alloy-rpc-types-trace",
+ "alloy-rpc-types-txpool",
  "alloy-sol-types",
  "alloy-transport",
  "alloy-transport-http",
@@ -4520,6 +4525,15 @@ dependencies = [
  "tower 0.4.13",
  "tower-http",
  "trait-variant",
+]
+
+[[package]]
+name = "mandu-subscriber"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "futures",
+ "tokio",
 ]
 
 [[package]]

@@ -1,0 +1,9 @@
+[package]
+name = "mandu-subscriber"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+alloy = { version = "0.12", features = ["full"] }
+futures = { workspace = true }
+tokio = { workspace = true, features = ["full"] }

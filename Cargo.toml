@@ -3,6 +3,7 @@ members = [
     "crates/abci",
     "crates/node",
     "crates/rpc",
+    "crates/subscriber",
     "crates/types",
 ]
 resolver = "2"
