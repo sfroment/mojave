@@ -5,7 +5,6 @@ pub use anvil_core::eth::transaction::TypedReceipt;
 pub use anvil_rpc::response::ResponseResult;
 use serde::{Deserialize, Serialize};
 use serde_helpers::WithOtherFields;
-use state::StateOverride;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthCall {
