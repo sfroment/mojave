@@ -7,8 +7,8 @@ pub struct RpcConfig {
 impl Default for RpcConfig {
     fn default() -> Self {
         Self {
-            rpc_address: "".to_owned(),
-            websocket_address: "".to_owned(),
+            rpc_address: "0.0.0.0:8585".to_owned(),
+            websocket_address: "0.0.0.0:8586".to_owned(),
         }
     }
 }
