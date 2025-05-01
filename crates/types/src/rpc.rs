@@ -24,8 +24,8 @@ pub struct EthCreateAccessList {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct EthEstimateGas {
     pub request: WithOtherFields<TransactionRequest>,
-    pub block_number: Option<BlockId>,
-    pub state_override: Option<StateOverride>,
+    // pub block_number: Option<BlockId>,
+    // pub state_override: Option<StateOverride>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

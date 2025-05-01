@@ -75,11 +75,7 @@ impl EthApi for Backend {
     /// complete.
     async fn estimate_gas(&self, parameter: EthEstimateGas) -> Result<U256, Self::Error> {
         self.evm_client()
-            .estimate_gas(
-                parameter.request,
-                parameter.block_number,
-                parameter.state_override,
-            )
+            .estimate_gas(parameter.request, None, None)
             .await
             .map_err(BackendError::EthApi)
     }
