@@ -1,5 +1,5 @@
 use crate::{
-    api::{eth::EthApi, eth_filter::EthFilterApi},
+    api::{eth::EthApi, eth_filter::EthFilterApi, net::NetApi, web3::Web3Api},
     config::RpcConfig,
     error::RpcServerError,
 };
@@ -20,17 +20,19 @@ use tower_http::cors::{Any, CorsLayer};
 
 pub struct HttpServer<T>
 where
-    T: EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
 {
     _backend: PhantomData<T>,
 }
 
 impl<T> HttpServer<T>
 where
-    T: EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
 {
     pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcServerError> {
         let mut rpc_module = RpcModule::new(backend);
+        Self::register_web3_api(&mut rpc_module)?;
+        Self::register_net_api(&mut rpc_module)?;
         Self::register_eth_api(&mut rpc_module)?;
         Self::register_eth_filter_api(&mut rpc_module)?;
 
@@ -50,10 +52,76 @@ where
     }
 }
 
+/// Web3Api implementations
+impl<T> HttpServer<T>
+where
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
+{
+    fn register_web3_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
+        rpc_module.register_async_method("web3_clientVersion", Self::client_version)?;
+        rpc_module.register_async_method("web3_sha3", Self::sha3)?;
+        Ok(())
+    }
+
+    async fn client_version(
+        _parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<String> {
+        backend.client_version().await.into_rpc_result()
+    }
+
+    async fn sha3(
+        parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<String> {
+        let parameter = parameter.parse::<Bytes>()?;
+        backend.sha3(parameter).await.into_rpc_result()
+    }
+}
+
+/// NetApi implementations
+impl<T> HttpServer<T>
+where
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
+{
+    fn register_net_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
+        rpc_module.register_async_method("net_version", Self::version)?;
+        rpc_module.register_async_method("net_peerCount", Self::peer_count)?;
+        rpc_module.register_async_method("net_listening", Self::listening)?;
+        Ok(())
+    }
+
+    async fn version(
+        _parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<String> {
+        backend.version().await.into_rpc_result()
+    }
+
+    async fn peer_count(
+        _parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<U64> {
+        backend.peer_count().await.into_rpc_result()
+    }
+
+    async fn listening(
+        _parameter: Params<'static>,
+        backend: Arc<T>,
+        _extension: Extensions,
+    ) -> RpcResult<bool> {
+        backend.listening().await.into_rpc_result()
+    }
+}
+
 /// EthApi implementations
 impl<T> HttpServer<T>
 where
-    T: EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
 {
     fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
@@ -456,7 +524,7 @@ where
 /// EthFilter implementations
 impl<T> HttpServer<T>
 where
-    T: EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi,
 {
     fn register_eth_filter_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_getFilterChanges", Self::get_filter_changes)?;

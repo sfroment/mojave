@@ -2,7 +2,9 @@ pub mod http;
 pub mod websocket;
 
 use crate::{
-    api::{eth::EthApi, eth_filter::EthFilterApi, eth_pubsub::EthPubSubApi},
+    api::{
+        eth::EthApi, eth_filter::EthFilterApi, eth_pubsub::EthPubSubApi, net::NetApi, web3::Web3Api,
+    },
     config::RpcConfig,
     error::RpcServerError,
 };
@@ -18,14 +20,14 @@ use websocket::WebsocketServer;
 
 pub struct RpcServer<T>
 where
-    T: EthApi + EthFilterApi + EthPubSubApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi + EthPubSubApi,
 {
     http_context: PhantomData<T>,
 }
 
 impl<T> RpcServer<T>
 where
-    T: EthApi + EthFilterApi + EthPubSubApi,
+    T: Web3Api + NetApi + EthApi + EthFilterApi + EthPubSubApi,
 {
     pub async fn init(config: &RpcConfig, backend: T) -> Result<RpcServerHandle, RpcServerError> {
         let http_server_handle = HttpServer::init(config, backend.clone()).await?;
