@@ -1,15 +1,17 @@
 use super::api::AbciApi;
+use crate::config::CometBftConfig;
 use futures::FutureExt;
 use std::{
     future::Future,
     marker::PhantomData,
     path::PathBuf,
     pin::Pin,
+    process::Command as BlockingCommand,
     task::{Context, Poll},
     thread::{self, JoinHandle as ThreadJoinHandle},
 };
 use tendermint_abci::ServerBuilder;
-use tendermint_config::TendermintConfig;
+use tendermint_config::net::Address;
 use tokio::{process::Command, task::JoinHandle};
 
 pub struct AbciServer<T>
@@ -23,21 +25,20 @@ impl<T> AbciServer<T>
 where
     T: AbciApi,
 {
-    pub fn init_config(
-        home_directory: impl AsRef<str>,
-    ) -> Result<TendermintConfig, AbciServerError> {
-        let mut cometbft_node = Command::new("cometbft");
+    pub fn init_config(home_directory: impl AsRef<str>) -> Result<CometBftConfig, AbciServerError> {
+        let mut cometbft_node = BlockingCommand::new("cometbft");
         cometbft_node.args(["init", "--home", home_directory.as_ref()]);
+        cometbft_node
+            .output()
+            .map_err(|_| AbciServerError::CometBft("CometBFT not installed".to_owned()))?;
 
         let config_path = PathBuf::from(home_directory.as_ref())
             .join("config")
             .join("config.toml");
-        let config =
-            TendermintConfig::load_toml_file(&config_path).map_err(AbciServerError::Config)?;
+        let config = CometBftConfig::from_file(config_path).map_err(AbciServerError::Config)?;
         if config.consensus.timeout_commit.as_secs() == 0 {
             return Err(AbciServerError::TimeoutCommitIsZero);
         }
-
         Ok(config)
     }
 
@@ -68,15 +69,26 @@ where
 
     pub fn init(
         home_directory: impl AsRef<str>,
-        config: TendermintConfig,
+        config: CometBftConfig,
         backend: T,
     ) -> Result<AbciServerHandle, AbciServerError> {
         let max_buffer_size: usize = config
-            .rpc
-            .max_header_bytes
+            .mempool
+            .max_tx_bytes
             .try_into()
             .map_err(AbciServerError::BufferSize)?;
-        let address = config.proxy_app.to_string();
+        let address = match config.proxy_app {
+            Address::Tcp {
+                peer_id: _,
+                host,
+                port,
+            } => format!("{}:{}", host, port),
+            Address::Unix { path: _ } => {
+                return Err(AbciServerError::CometBft(
+                    "Unexpected address type".to_owned(),
+                ));
+            }
+        };
 
         let server = ServerBuilder::new(max_buffer_size)
             .bind(&address, backend)
@@ -134,7 +146,7 @@ impl Future for AbciServerHandle {
 }
 
 pub enum AbciServerError {
-    Config(tendermint_config::Error),
+    Config(crate::config::CometBftConfigError),
     TimeoutCommitIsZero,
     BufferSize(std::num::TryFromIntError),
     Build(tendermint_abci::Error),

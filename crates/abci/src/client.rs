@@ -9,15 +9,9 @@ pub struct AbciClient {
     client: HttpClient,
 }
 
-impl Default for AbciClient {
-    fn default() -> Self {
-        Self::new("http://127.0.0.1:26657").unwrap()
-    }
-}
-
 impl AbciClient {
-    pub fn new(tendermint_rpc_url: impl AsRef<str>) -> Result<Self, AbciClientError> {
-        let rpc_url = HttpClientUrl::from_str(tendermint_rpc_url.as_ref())?;
+    pub fn new(cometbft_rpc_url: impl AsRef<str>) -> Result<Self, AbciClientError> {
+        let rpc_url = HttpClientUrl::from_str(cometbft_rpc_url.as_ref())?;
 
         let client = HttpClient::builder(rpc_url)
             .compat_mode(CompatMode::V0_38)
