@@ -298,10 +298,16 @@ impl EthApi for Backend {
         //     }
         //     Code::Err(_) => Err(BackendError::CheckTx(response.log)),
         // }
-        self.evm_client()
+        let transaction_hash = self
+            .evm_client()
             .send_raw_transaction(parameter.bytes.clone())
             .await
-            .map_err(BackendError::EthApi)
+            .map_err(BackendError::EthApi)?;
+
+        self.pubsub_service()
+            .publish_pending_transaction(transaction_hash);
+
+        Ok(transaction_hash)
     }
 
     /// Signs transaction with a matching signer, if any and submits the transaction to the pool.
@@ -321,10 +327,16 @@ impl EthApi for Backend {
         //     }
         //     Code::Err(_) => Err(BackendError::CheckTx(response.log)),
         // }
-        self.evm_client()
+        let transaction_hash = self
+            .evm_client()
             .send_transaction(parameter.transaction.clone())
             .await
-            .map_err(BackendError::EthApi)
+            .map_err(BackendError::EthApi)?;
+
+        self.pubsub_service()
+            .publish_pending_transaction(transaction_hash);
+
+        Ok(transaction_hash)
     }
 
     /// Returns an Ethereum specific signature with: sign(keccak256("\x19Ethereum Signed Message:\n"
