@@ -13,6 +13,7 @@ use mandu_rpc::{
     error::RpcServerError,
     server::{RpcServer, RpcServerHandle},
 };
+use mandu_types::primitives::{utils::Unit, U256};
 use std::{
     env,
     future::Future,
@@ -29,7 +30,8 @@ impl ManduNode {
         let home_directory = arguments.first().expect("Provide the home directory");
 
         // Initialize anvil backend.
-        let node_config = anvil::NodeConfig::empty_state();
+        let mut node_config = anvil::NodeConfig::default();
+        node_config.genesis_balance = Unit::ETHER.wei().saturating_mul(U256::from(10000u64));
         let (evm_client, evm_client_handle) = anvil::try_spawn(node_config).await.unwrap();
 
         // Initialize ABCI configuration and client.
