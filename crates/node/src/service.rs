@@ -1,5 +1,5 @@
 use crate::backend::Backend;
-use futures::{channel::oneshot, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use mandu_abci::types::{RequestCheckTx, ResponseCheckTx, ResponseCommit};
 use mandu_types::{
     network::AnyHeader,
@@ -9,7 +9,7 @@ use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_stream::wrappers::BroadcastStream;
 
 pub const QUEUE_LIMIT: usize = 100;
@@ -144,11 +144,11 @@ impl AbciService {
                     match request {
                         AbciRequest::CheckTx(request) => {
                             let response = backend.check_transaction(request).await;
-                            let _ = sender.send(response.into());
+                            sender.send(response.into()).unwrap();
                         }
                         AbciRequest::Commit => {
                             let response = backend.do_commit().await;
-                            let _ = sender.send(response.into());
+                            sender.send(response.into()).unwrap();
                         }
                     }
                 }
@@ -169,6 +169,7 @@ impl AbciService {
     }
 }
 
+#[derive(Debug)]
 pub enum AbciRequest {
     CheckTx(RequestCheckTx),
     Commit,
@@ -180,6 +181,7 @@ impl From<RequestCheckTx> for AbciRequest {
     }
 }
 
+#[derive(Debug)]
 pub enum AbciResponse {
     CheckTx(ResponseCheckTx),
     Commit(ResponseCommit),

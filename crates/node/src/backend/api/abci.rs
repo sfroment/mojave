@@ -7,12 +7,12 @@ use mandu_abci::{api::AbciApi, types::*};
 impl AbciApi for Backend {
     /// TODO: Validate the transaction (Signature, Nonce, Balance, ETC..).
     fn check_tx(&self, request: RequestCheckTx) -> ResponseCheckTx {
-        let mut receiver = self.abci_service().send(self.clone(), request);
+        let receiver = self.abci_service().send(self.clone(), request);
 
         // # Safety
         // Very unlikely that the sender drops before sending a response.
-        match receiver.try_recv().unwrap() {
-            Some(AbciResponse::CheckTx(response)) => response,
+        match receiver.blocking_recv() {
+            Ok(AbciResponse::CheckTx(response)) => response,
             _others => panic!("Failed to check the transaction"),
         }
     }
@@ -22,13 +22,12 @@ impl AbciApi for Backend {
     }
 
     fn commit(&self) -> ResponseCommit {
-        let mut receiver = self.abci_service().send(self.clone(), AbciRequest::Commit);
+        let receiver = self.abci_service().send(self.clone(), AbciRequest::Commit);
 
         // # Safety
         // Very unlikely that the sender drops before sending a response.
-        match receiver.try_recv().unwrap() {
-            Some(AbciResponse::Commit(response)) => response,
-            // Unreachable
+        match receiver.blocking_recv() {
+            Ok(AbciResponse::Commit(response)) => response,
             _others => panic!("Failed to commit"),
         }
     }
