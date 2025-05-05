@@ -1,7 +1,7 @@
-use mandu_node::ManduNode;
+use drip_chain_node::DRiPNode;
 
 #[tokio::main]
 async fn main() {
-    let handle = ManduNode::init().await.unwrap();
+    let handle = DRiPNode::init().await.unwrap();
     handle.await;
 }

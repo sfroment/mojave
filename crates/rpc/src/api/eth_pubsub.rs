@@ -1,9 +1,9 @@
-use futures::stream::Stream;
-use mandu_types::{
+use drip_chain_types::{
     network::AnyHeader,
     primitives::B256,
     rpc::{Filter, Header, Log},
 };
+use futures::stream::Stream;
 
 #[trait_variant::make(EthPubSubApi: Send)]
 pub trait LocalEthPubSubApi: Clone + Send + Sync + 'static {

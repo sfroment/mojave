@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "crates/abci",
-    "crates/node",
-    "crates/rpc",
-    "crates/subscriber",
-    "crates/types",
+	"crates/abci",
+	"crates/node",
+	"crates/rpc",
+	"crates/subscriber",
+	"crates/types",
 ]
 resolver = "2"
 
@@ -18,7 +18,7 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 trait-variant = "0.1"
 
-mandu-abci = { path = "crates/abci" }
-mandu-node = { path = "crates/node" }
-mandu-rpc = { path = "crates/rpc" }
-mandu-types = { path = "crates/types" }
+drip-chain-abci = { path = "crates/abci" }
+drip-chain-node = { path = "crates/node" }
+drip-chain-rpc = { path = "crates/rpc" }
+drip-chain-types = { path = "crates/types" }

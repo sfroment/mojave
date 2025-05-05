@@ -10,7 +10,7 @@ use jsonrpsee::{
     server::{Server, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned, Params},
 };
-use mandu_types::{
+use drip_chain_types::{
     network::{AnyRpcBlock, AnyRpcTransaction},
     primitives::{Address, B256, Bytes, U64, U256},
     rpc::*,

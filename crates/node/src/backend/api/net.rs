@@ -1,6 +1,6 @@
 use crate::backend::{error::BackendError, Backend};
-use mandu_rpc::api::net::NetApi;
-use mandu_types::primitives::U64;
+use drip_chain_rpc::api::net::NetApi;
+use drip_chain_types::primitives::U64;
 
 impl NetApi for Backend {
     type Error = BackendError;

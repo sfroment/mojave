@@ -3,16 +3,16 @@ pub mod service;
 
 use backend::{error::BackendError, Backend};
 use futures::FutureExt;
-use mandu_abci::{
+use drip_chain_abci::{
     client::{AbciClient, AbciClientError},
     server::{AbciServer, AbciServerError, AbciServerHandle},
 };
-use mandu_rpc::{
+use drip_chain_rpc::{
     config::RpcConfig,
     error::RpcServerError,
     server::{RpcServer, RpcServerHandle},
 };
-use mandu_types::primitives::{utils::Unit, U256};
+use drip_chain_types::primitives::{utils::Unit, U256};
 use std::{
     env,
     future::Future,
@@ -20,10 +20,10 @@ use std::{
     task::{Context, Poll},
 };
 
-pub struct ManduNode;
+pub struct DRiPNode;
 
-impl ManduNode {
-    pub async fn init() -> Result<ManduNodeHandle, ManduNodeError> {
+impl DRiPNode {
+    pub async fn init() -> Result<DRiPNodeHandle, DRiPNodeError> {
         // TODO: replace it with clap parser for advance CLI.
         let arguments: Vec<String> = env::args().skip(1).collect();
         let home_directory = arguments.first().expect("Provide the home directory");
@@ -52,7 +52,7 @@ impl ManduNode {
         let rpc_config = RpcConfig::default();
         let rpc_server_handle = RpcServer::init(&rpc_config, backend).await?;
 
-        let handle = ManduNodeHandle {
+        let handle = DRiPNodeHandle {
             abci_server: abci_server_handle,
             rpc_server: rpc_server_handle,
             evm_client_handle: evm_client_handle,
@@ -61,15 +61,15 @@ impl ManduNode {
     }
 }
 
-pub struct ManduNodeHandle {
+pub struct DRiPNodeHandle {
     abci_server: AbciServerHandle,
     rpc_server: RpcServerHandle,
     #[allow(unused)]
     evm_client_handle: anvil::NodeHandle,
 }
 
-impl Future for ManduNodeHandle {
-    type Output = ManduNodeError;
+impl Future for DRiPNodeHandle {
+    type Output = DRiPNodeError;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
@@ -87,40 +87,40 @@ impl Future for ManduNodeHandle {
 }
 
 #[derive(Debug)]
-pub enum ManduNodeError {
+pub enum DRiPNodeError {
     AbciServer(AbciServerError),
     AbciClient(AbciClientError),
     Rpc(RpcServerError),
     Backend(BackendError),
 }
 
-impl std::fmt::Display for ManduNodeError {
+impl std::fmt::Display for DRiPNodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl std::error::Error for ManduNodeError {}
+impl std::error::Error for DRiPNodeError {}
 
-impl From<AbciServerError> for ManduNodeError {
+impl From<AbciServerError> for DRiPNodeError {
     fn from(value: AbciServerError) -> Self {
         Self::AbciServer(value)
     }
 }
 
-impl From<AbciClientError> for ManduNodeError {
+impl From<AbciClientError> for DRiPNodeError {
     fn from(value: AbciClientError) -> Self {
         Self::AbciClient(value)
     }
 }
 
-impl From<RpcServerError> for ManduNodeError {
+impl From<RpcServerError> for DRiPNodeError {
     fn from(value: RpcServerError) -> Self {
         Self::Rpc(value)
     }
 }
 
-impl From<BackendError> for ManduNodeError {
+impl From<BackendError> for DRiPNodeError {
     fn from(value: BackendError) -> Self {
         Self::Backend(value)
     }

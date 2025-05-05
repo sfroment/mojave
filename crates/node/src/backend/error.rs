@@ -3,7 +3,7 @@ pub enum BackendError {
     EthFilterResponse,
     EthFilter(String),
     // CheckTx error.
-    Broadcast(mandu_abci::client::AbciClientError),
+    Broadcast(drip_chain_abci::client::AbciClientError),
     CheckTx(String),
     Undefined,
     Unimplemented,

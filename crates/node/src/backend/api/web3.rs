@@ -1,6 +1,6 @@
 use crate::backend::{error::BackendError, Backend};
-use mandu_rpc::api::web3::Web3Api;
-use mandu_types::primitives::Bytes;
+use drip_chain_rpc::api::web3::Web3Api;
+use drip_chain_types::primitives::Bytes;
 
 impl Web3Api for Backend {
     type Error = BackendError;

@@ -1,5 +1,5 @@
 use crate::service::{AbciService, PubSubService};
-use mandu_abci::client::AbciClient;
+use drip_chain_abci::client::AbciClient;
 use std::sync::Arc;
 pub mod api;
 pub mod error;

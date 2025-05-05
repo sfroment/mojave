@@ -6,7 +6,7 @@ use jsonrpsee::{
     types::Params,
     Extensions, PendingSubscriptionSink, RpcModule, SubscriptionMessage,
 };
-use mandu_types::rpc::pubsub::{Params as SubscriptionParams, SubscriptionKind};
+use drip_chain_types::rpc::pubsub::{Params as SubscriptionParams, SubscriptionKind};
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct WebsocketServer<T: EthPubSubApi> {

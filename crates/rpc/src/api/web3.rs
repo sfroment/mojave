@@ -1,4 +1,4 @@
-use mandu_types::primitives::Bytes;
+use drip_chain_types::primitives::Bytes;
 
 #[trait_variant::make(Web3Api: Send)]
 pub trait LocalWeb3Api: Clone + Send + Sync + 'static {

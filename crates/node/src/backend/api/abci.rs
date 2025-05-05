@@ -2,7 +2,7 @@ use crate::{
     backend::Backend,
     service::{AbciRequest, AbciResponse},
 };
-use mandu_abci::{api::AbciApi, types::*};
+use drip_chain_abci::{api::AbciApi, types::*};
 
 impl AbciApi for Backend {
     /// TODO: Validate the transaction (Signature, Nonce, Balance, ETC..) after ethrex integration.
@@ -67,7 +67,7 @@ impl Backend {
         // Block is guaranteed to exist as long as mine_one() succeeds.
         let block = self
             .evm_client()
-            .block_by_number_full(mandu_types::rpc::BlockNumberOrTag::Latest)
+            .block_by_number_full(drip_chain_types::rpc::BlockNumberOrTag::Latest)
             .await
             .unwrap();
 

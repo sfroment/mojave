@@ -1,5 +1,5 @@
 [package]
-name = "mandu-rpc"
+name = "drip-chain-rpc"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,7 +7,7 @@ edition = "2024"
 futures = { workspace = true }
 jsonrpsee = { version = "0.24", features = ["server"] }
 hyper = "1.6.0"
-mandu-types = { workspace = true }
+drip-chain-types = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true }

@@ -1,9 +1,9 @@
 use crate::backend::Backend;
 use futures::{Stream, StreamExt};
-use mandu_abci::types::{
+use drip_chain_abci::types::{
     RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit, ResponseFinalizeBlock,
 };
-use mandu_types::{
+use drip_chain_types::{
     network::AnyHeader,
     primitives::B256,
     rpc::{Filter, Header, Log},
