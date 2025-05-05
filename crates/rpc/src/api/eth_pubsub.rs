@@ -7,9 +7,12 @@ use futures::stream::Stream;
 
 #[trait_variant::make(EthPubSubApi: Send)]
 pub trait LocalEthPubSubApi: Clone + Send + Sync + 'static {
-    fn subscribe_new_heads(&self) -> impl Stream<Item = Header<AnyHeader>> + Unpin;
+    async fn subscribe_new_heads(&self) -> impl Stream<Item = Header<AnyHeader>> + Send + Unpin;
 
-    fn subscribe_logs(&self, filter: Option<Box<Filter>>) -> impl Stream<Item = Log> + Unpin;
+    async fn subscribe_logs(
+        &self,
+        filter: Option<Box<Filter>>,
+    ) -> impl Stream<Item = Log> + Send + Unpin;
 
-    fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = B256> + Unpin;
+    async fn subscribe_new_pending_transaction(&self) -> impl Stream<Item = B256> + Send + Unpin;
 }

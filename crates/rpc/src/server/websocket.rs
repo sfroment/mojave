@@ -54,7 +54,7 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
     async fn new_heads(pending: PendingSubscriptionSink, backend: Arc<T>) -> SubscriptionResult {
         let sink = pending.accept().await?;
         tokio::spawn(async move {
-            let mut stream = backend.subscribe_new_heads();
+            let mut stream = backend.subscribe_new_heads().await;
             while let Some(header) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&header).unwrap();
                 if sink.send(message).await.is_err() {
@@ -82,7 +82,7 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
         };
 
         tokio::spawn(async move {
-            let mut stream = backend.subscribe_logs(filter);
+            let mut stream = backend.subscribe_logs(filter).await;
             while let Some(logs) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&logs).unwrap();
                 if sink.send(message).await.is_err() {
@@ -102,7 +102,7 @@ impl<T: EthPubSubApi> WebsocketServer<T> {
     ) -> SubscriptionResult {
         let sink = pending.accept().await?;
         tokio::spawn(async move {
-            let mut stream = backend.subscribe_new_pending_transaction();
+            let mut stream = backend.subscribe_new_pending_transaction().await;
             while let Some(new_pending_transaction) = stream.next().await {
                 let message = SubscriptionMessage::from_json(&new_pending_transaction).unwrap();
                 if sink.send(message).await.is_err() {
