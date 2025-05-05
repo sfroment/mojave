@@ -2,7 +2,6 @@ pub mod backend;
 pub mod service;
 
 use backend::{error::BackendError, Backend};
-use futures::FutureExt;
 use drip_chain_abci::{
     client::{AbciClient, AbciClientError},
     server::{AbciServer, AbciServerError, AbciServerHandle},
@@ -13,6 +12,7 @@ use drip_chain_rpc::{
     server::{RpcServer, RpcServerHandle},
 };
 use drip_chain_types::primitives::{utils::Unit, U256};
+use futures::FutureExt;
 use std::{
     env,
     future::Future,

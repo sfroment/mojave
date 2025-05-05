@@ -1,12 +1,12 @@
 use crate::{api::eth_pubsub::EthPubSubApi, config::RpcConfig, error::RpcServerError};
+use drip_chain_types::rpc::pubsub::{Params as SubscriptionParams, SubscriptionKind};
 use futures::stream::StreamExt;
 use jsonrpsee::{
+    Extensions, PendingSubscriptionSink, RpcModule, SubscriptionMessage,
     core::SubscriptionResult,
     server::{Server, ServerHandle},
     types::Params,
-    Extensions, PendingSubscriptionSink, RpcModule, SubscriptionMessage,
 };
-use drip_chain_types::rpc::pubsub::{Params as SubscriptionParams, SubscriptionKind};
 use std::{marker::PhantomData, sync::Arc};
 
 pub struct WebsocketServer<T: EthPubSubApi> {

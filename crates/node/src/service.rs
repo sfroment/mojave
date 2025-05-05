@@ -1,5 +1,4 @@
 use crate::backend::Backend;
-use futures::{Stream, StreamExt};
 use drip_chain_abci::types::{
     RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit, ResponseFinalizeBlock,
 };
@@ -8,6 +7,7 @@ use drip_chain_types::{
     primitives::B256,
     rpc::{Filter, Header, Log},
 };
+use futures::{Stream, StreamExt};
 use std::{
     pin::Pin,
     task::{Context, Poll},

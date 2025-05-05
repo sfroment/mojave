@@ -3,17 +3,17 @@ use crate::{
     config::RpcConfig,
     error::RpcServerError,
 };
+use drip_chain_types::{
+    network::{AnyRpcBlock, AnyRpcTransaction},
+    primitives::{Address, B256, Bytes, U64, U256},
+    rpc::*,
+};
 use hyper::Method;
 use jsonrpsee::{
     Extensions, RpcModule,
     core::RpcResult,
     server::{Server, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned, Params},
-};
-use drip_chain_types::{
-    network::{AnyRpcBlock, AnyRpcTransaction},
-    primitives::{Address, B256, Bytes, U64, U256},
-    rpc::*,
 };
 use std::{marker::PhantomData, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
