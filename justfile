@@ -5,9 +5,9 @@ default:
   just --list
 
 node home_directory=env("COMETBFT_HOME_PATH", "~/.cometbft"):
-    cargo build --bin drip-chain-node
+    cargo build --bin mohave-chain-node
 
-    cargo run --bin drip-chain-node -- {{home_directory}}
+    cargo run --bin mohave-chain-node -- {{home_directory}}
 
 # Fix some issues
 fix flags="":
