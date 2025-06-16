@@ -2372,8 +2372,11 @@ name = "drip-chain-subscriber"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "clap",
  "futures",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4404,6 +4407,7 @@ dependencies = [
  "tokio-stream",
  "tower 0.4.13",
  "tower-http",
+ "tracing",
  "trait-variant",
 ]
 
@@ -4412,11 +4416,13 @@ name = "mohave-chain-node"
 version = "0.1.0"
 dependencies = [
  "anvil",
+ "clap",
  "futures",
  "mohave-chain-json-rpc",
  "mohave-chain-types",
  "serde",
  "serde_json",
+ "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
  "tracing",

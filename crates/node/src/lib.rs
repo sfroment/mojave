@@ -1,7 +1,9 @@
+mod args;
 pub mod backend;
 pub mod service;
 
 use backend::{error::BackendError, Backend};
+use clap::Parser;
 use futures::FutureExt;
 use mohave_chain_json_rpc::{
     config::RpcConfig,
@@ -10,24 +12,25 @@ use mohave_chain_json_rpc::{
 };
 use mohave_chain_types::primitives::{utils::Unit, U256};
 use std::{
-    env,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
+use crate::args::Args;
+
 pub struct MohaveChainNode;
 
 impl MohaveChainNode {
     pub async fn init() -> Result<MohaveChainNodeHandle, MohaveChainNodeError> {
-        // TODO: replace it with clap parser for advance CLI.
-        let arguments: Vec<String> = env::args().skip(1).collect();
-        let home_directory = arguments.first().expect("Provide the home directory");
+        let _args = Args::parse();
 
         // Initialize anvil backend.
-        let mut node_config = anvil::NodeConfig::default();
-        node_config.genesis_balance = Unit::ETHER.wei().saturating_mul(U256::from(10000u64));
-        let (evm_client, evm_client_handle) = anvil::try_spawn(node_config).await.unwrap();
+        let balance = Unit::ETHER.wei().saturating_mul(U256::from(10000u64));
+        let node_config = anvil::NodeConfig::default().with_genesis_balance(balance);
+        let (evm_client, evm_client_handle) = anvil::try_spawn(node_config)
+            .await
+            .map_err(|e| MohaveChainNodeError::Evm(e.to_string()))?;
 
         // Initialize the backend.
         let backend = Backend::init(evm_client);
@@ -38,7 +41,7 @@ impl MohaveChainNode {
 
         let handle = MohaveChainNodeHandle {
             rpc_server: rpc_server_handle,
-            evm_client_handle: evm_client_handle,
+            evm_client_handle,
         };
         Ok(handle)
     }
@@ -64,28 +67,12 @@ impl Future for MohaveChainNodeHandle {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum MohaveChainNodeError {
-    Rpc(RpcServerError),
-    Backend(BackendError),
-}
-
-impl std::fmt::Display for MohaveChainNodeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for MohaveChainNodeError {}
-
-impl From<RpcServerError> for MohaveChainNodeError {
-    fn from(value: RpcServerError) -> Self {
-        Self::Rpc(value)
-    }
-}
-
-impl From<BackendError> for MohaveChainNodeError {
-    fn from(value: BackendError) -> Self {
-        Self::Backend(value)
-    }
+    #[error("RPC server error: {0}")]
+    Rpc(#[from] RpcServerError),
+    #[error("Backend error: {0}")]
+    Backend(#[from] BackendError),
+    #[error("EVM client error: {0}")]
+    Evm(String),
 }
