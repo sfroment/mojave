@@ -1,6 +1,6 @@
 use crate::backend::{error::BackendError, Backend};
-use drip_chain_rpc::api::eth_filter::EthFilterApi;
-use drip_chain_types::rpc::*;
+use mohave_chain_rpc::api::eth_filter::EthFilterApi;
+use mohave_chain_types::rpc::*;
 
 impl EthFilterApi for Backend {
     type Error = BackendError;

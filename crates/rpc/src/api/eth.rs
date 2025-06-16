@@ -1,4 +1,4 @@
-use drip_chain_types::{
+use mohave_chain_types::{
     network::{AnyRpcBlock, AnyRpcTransaction},
     primitives::{Address, B256, Bytes, U64, U256},
     rpc::*,

@@ -1,5 +1,5 @@
 [package]
-name = "drip-chain-types"
+name = "mohave-chain-types"
 version = "0.1.0"
 edition = "2024"
 

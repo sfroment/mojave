@@ -1,4 +1,4 @@
-use drip_chain_types::rpc::FilterId;
+use mohave_chain_types::rpc::FilterId;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 

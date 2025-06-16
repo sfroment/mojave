@@ -1,11 +1,11 @@
 use crate::backend::Backend;
-use drip_chain_rpc::api::eth_pubsub::EthPubSubApi;
-use drip_chain_types::{
+use futures::stream::Stream;
+use mohave_chain_rpc::api::eth_pubsub::EthPubSubApi;
+use mohave_chain_types::{
     network::AnyHeader,
     primitives::B256,
     rpc::{Filter, Header, Log},
 };
-use futures::stream::Stream;
 
 impl EthPubSubApi for Backend {
     async fn subscribe_new_heads(&self) -> impl Stream<Item = Header<AnyHeader>> + Send + Unpin {

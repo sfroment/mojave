@@ -1,7 +1,7 @@
-use drip_chain_node::DRiPNode;
+use mohave_chain_node::MohaveChainNode;
 
 #[tokio::main]
 async fn main() {
-    let handle = DRiPNode::init().await.unwrap();
+    let handle = MohaveChainNode::init().await.unwrap();
     handle.await;
 }

@@ -1,4 +1,4 @@
-use drip_chain_types::primitives::U64;
+use mohave_chain_types::primitives::U64;
 
 #[trait_variant::make(NetApi: Send)]
 pub trait LocalNetApi: Clone + Send + Sync + 'static {

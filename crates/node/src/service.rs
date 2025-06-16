@@ -1,18 +1,14 @@
-use crate::backend::Backend;
-use drip_chain_abci::types::{
-    RequestCheckTx, RequestFinalizeBlock, ResponseCheckTx, ResponseCommit, ResponseFinalizeBlock,
-};
-use drip_chain_types::{
+use futures::{Stream, StreamExt};
+use mohave_chain_types::{
     network::AnyHeader,
     primitives::B256,
     rpc::{Filter, Header, Log},
 };
-use futures::{Stream, StreamExt};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::broadcast;
 use tokio_stream::wrappers::BroadcastStream;
 
 pub const QUEUE_LIMIT: usize = 100;
@@ -130,92 +126,5 @@ impl Stream for PendingTransactionStream {
                 None => Poll::Ready(None),
             },
         }
-    }
-}
-
-pub struct AbciService {
-    sender: mpsc::UnboundedSender<(Backend, AbciRequest, oneshot::Sender<AbciResponse>)>,
-}
-
-impl AbciService {
-    pub fn init() -> Self {
-        let (sender, mut receiver) =
-            mpsc::unbounded_channel::<(Backend, AbciRequest, oneshot::Sender<AbciResponse>)>();
-        tokio::spawn(async move {
-            loop {
-                if let Some((backend, request, sender)) = receiver.recv().await {
-                    match request {
-                        AbciRequest::CheckTx(request) => {
-                            let response = backend.check_transaction(request).await;
-                            sender.send(response.into()).unwrap();
-                        }
-                        AbciRequest::FinalizeBlock(request) => {
-                            let response = backend.do_finalize_block(request).await;
-                            sender.send(response.into()).unwrap();
-                        }
-                        AbciRequest::Commit => {
-                            let response = backend.do_commit().await;
-                            sender.send(response.into()).unwrap();
-                        }
-                    }
-                }
-            }
-        });
-
-        Self { sender }
-    }
-
-    pub fn send(
-        &self,
-        backend: Backend,
-        request: impl Into<AbciRequest>,
-    ) -> oneshot::Receiver<AbciResponse> {
-        let (sender, receiver) = oneshot::channel::<AbciResponse>();
-        let _ = self.sender.send((backend, request.into(), sender));
-        receiver
-    }
-}
-
-#[derive(Debug)]
-pub enum AbciRequest {
-    CheckTx(RequestCheckTx),
-    FinalizeBlock(RequestFinalizeBlock),
-    Commit,
-}
-
-impl From<RequestCheckTx> for AbciRequest {
-    fn from(value: RequestCheckTx) -> Self {
-        Self::CheckTx(value)
-    }
-}
-
-impl From<RequestFinalizeBlock> for AbciRequest {
-    fn from(value: RequestFinalizeBlock) -> Self {
-        Self::FinalizeBlock(value)
-    }
-}
-
-#[derive(Debug)]
-pub enum AbciResponse {
-    CheckTx(ResponseCheckTx),
-    FinalizeBlock(ResponseFinalizeBlock),
-    Commit(ResponseCommit),
-}
-
-impl From<ResponseCheckTx> for AbciResponse {
-    fn from(value: ResponseCheckTx) -> Self {
-        Self::CheckTx(value)
-    }
-}
-
-impl From<ResponseFinalizeBlock> for AbciResponse {
-    fn from(value: ResponseFinalizeBlock) -> Self {
-        Self::FinalizeBlock(value)
-    }
-}
-
-impl From<ResponseCommit> for AbciResponse {
-    fn from(value: ResponseCommit) -> Self {
-        Self::Commit(value)
     }
 }
