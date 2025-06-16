@@ -1,6 +1,6 @@
 use crate::backend::Backend;
 use futures::stream::Stream;
-use mohave_chain_rpc::api::eth_pubsub::EthPubSubApi;
+use mohave_chain_json_rpc::api::eth_pubsub::EthPubSubApi;
 use mohave_chain_types::{
     network::AnyHeader,
     primitives::B256,

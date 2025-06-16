@@ -3,7 +3,7 @@ pub mod service;
 
 use backend::{error::BackendError, Backend};
 use futures::FutureExt;
-use mohave_chain_rpc::{
+use mohave_chain_json_rpc::{
     config::RpcConfig,
     error::RpcServerError,
     server::{RpcServer, RpcServerHandle},

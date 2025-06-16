@@ -1,5 +1,5 @@
 [package]
-name = "mohave-chain-rpc"
+name = "mohave-chain-json-rpc"
 version = "0.1.0"
 edition = "2024"
 

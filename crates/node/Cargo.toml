@@ -8,7 +8,7 @@ name = "mohave-chain-node"
 path = "src/bin/main.rs"
 
 [dependencies]
-mohave-chain-rpc = { workspace = true }
+mohave-chain-json-rpc = { workspace = true }
 mohave-chain-types = { workspace = true }
 
 anvil = { git = "https://github.com/foundry-rs/foundry", rev = "d484a00089d789a19e2e43e63bbb3f1500eb2cbf" }

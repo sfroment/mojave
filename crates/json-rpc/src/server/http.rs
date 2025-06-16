@@ -1,5 +1,5 @@
 use crate::{
-    api::{eth::EthApi, eth_filter::EthFilterApi, net::NetApi, web3::Web3Api},
+    api::{eth::EthApi, net::NetApi, web3::Web3Api},
     config::RpcConfig,
     error::RpcServerError,
 };
@@ -20,21 +20,20 @@ use tower_http::cors::{Any, CorsLayer};
 
 pub struct HttpServer<T>
 where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi,
 {
     _backend: PhantomData<T>,
 }
 
 impl<T> HttpServer<T>
 where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi,
 {
     pub async fn init(config: &RpcConfig, backend: T) -> Result<ServerHandle, RpcServerError> {
         let mut rpc_module = RpcModule::new(backend);
-        Self::register_web3_api(&mut rpc_module)?;
-        Self::register_net_api(&mut rpc_module)?;
         Self::register_eth_api(&mut rpc_module)?;
-        Self::register_eth_filter_api(&mut rpc_module)?;
+        Self::register_net_api(&mut rpc_module)?;
+        Self::register_web3_api(&mut rpc_module)?;
 
         let cors = CorsLayer::new()
             .allow_methods([Method::POST])
@@ -55,7 +54,7 @@ where
 /// Web3Api implementations
 impl<T> HttpServer<T>
 where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi,
 {
     fn register_web3_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("web3_clientVersion", Self::client_version)?;
@@ -84,7 +83,7 @@ where
 /// NetApi implementations
 impl<T> HttpServer<T>
 where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi,
 {
     fn register_net_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("net_version", Self::version)?;
@@ -121,7 +120,7 @@ where
 /// EthApi implementations
 impl<T> HttpServer<T>
 where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
+    T: Web3Api + NetApi + EthApi,
 {
     fn register_eth_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
         rpc_module.register_async_method("eth_accounts", Self::accounts)?;
@@ -177,6 +176,16 @@ where
         rpc_module.register_async_method("eth_sign", Self::sign)?;
         rpc_module.register_async_method("eth_signTransaction", Self::sign_transaction)?;
         rpc_module.register_async_method("eth_syncing", Self::syncing)?;
+        rpc_module.register_async_method("eth_getFilterChanges", Self::get_filter_changes)?;
+        rpc_module.register_async_method("eth_getFilterLogs", Self::get_filter_logs)?;
+        rpc_module.register_async_method("eth_getLogs", Self::get_logs)?;
+        rpc_module.register_async_method("eth_newBlockFilter", Self::new_block_filter)?;
+        rpc_module.register_async_method("eth_newFilter", Self::new_filter)?;
+        rpc_module.register_async_method(
+            "eth_newPendingTransactionFilter",
+            Self::new_pending_transaction_filter,
+        )?;
+        rpc_module.register_async_method("eth_uninstallFilter", Self::uninstall_filter)?;
         Ok(())
     }
 
@@ -529,26 +538,6 @@ where
         _extension: Extensions,
     ) -> RpcResult<bool> {
         backend.syncing().await.into_rpc_result()
-    }
-}
-
-/// EthFilter implementations
-impl<T> HttpServer<T>
-where
-    T: Web3Api + NetApi + EthApi + EthFilterApi,
-{
-    fn register_eth_filter_api(rpc_module: &mut RpcModule<T>) -> Result<(), RpcServerError> {
-        rpc_module.register_async_method("eth_getFilterChanges", Self::get_filter_changes)?;
-        rpc_module.register_async_method("eth_getFilterLogs", Self::get_filter_logs)?;
-        rpc_module.register_async_method("eth_getLogs", Self::get_logs)?;
-        rpc_module.register_async_method("eth_newBlockFilter", Self::new_block_filter)?;
-        rpc_module.register_async_method("eth_newFilter", Self::new_filter)?;
-        rpc_module.register_async_method(
-            "eth_newPendingTransactionFilter",
-            Self::new_pending_transaction_filter,
-        )?;
-        rpc_module.register_async_method("eth_uninstallFilter", Self::uninstall_filter)?;
-        Ok(())
     }
 
     async fn get_filter_changes(

@@ -4391,23 +4391,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mohave-chain-node"
-version = "0.1.0"
-dependencies = [
- "anvil",
- "futures",
- "mohave-chain-rpc",
- "mohave-chain-types",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "mohave-chain-rpc"
+name = "mohave-chain-json-rpc"
 version = "0.1.0"
 dependencies = [
  "futures",
@@ -4420,6 +4404,22 @@ dependencies = [
  "tower 0.4.13",
  "tower-http",
  "trait-variant",
+]
+
+[[package]]
+name = "mohave-chain-node"
+version = "0.1.0"
+dependencies = [
+ "anvil",
+ "futures",
+ "mohave-chain-json-rpc",
+ "mohave-chain-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

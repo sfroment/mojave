@@ -1,5 +1,5 @@
 use crate::backend::{error::BackendError, Backend};
-use mohave_chain_rpc::api::web3::Web3Api;
+use mohave_chain_json_rpc::api::web3::Web3Api;
 use mohave_chain_types::primitives::Bytes;
 
 impl Web3Api for Backend {
