@@ -4394,13 +4394,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "mohave-chain-json-rpc"
+name = "mojave"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "futures",
+ "mojave-chain-full-node",
+ "mojave-chain-json-rpc",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "mojave-chain-full-node"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "futures",
+ "mojave-chain-json-rpc",
+ "mojave-chain-types",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "mojave-chain-json-rpc"
 version = "0.1.0"
 dependencies = [
  "futures",
  "hyper",
  "jsonrpsee",
- "mohave-chain-types",
+ "mojave-chain-types",
  "serde",
  "thiserror 2.0.12",
  "tokio",
@@ -4412,14 +4437,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "mohave-chain-node"
+name = "mojave-chain-node"
 version = "0.1.0"
 dependencies = [
  "anvil",
  "clap",
  "futures",
- "mohave-chain-json-rpc",
- "mohave-chain-types",
+ "mojave-chain-json-rpc",
+ "mojave-chain-types",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
@@ -4430,7 +4455,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mohave-chain-types"
+name = "mojave-chain-types"
 version = "0.1.0"
 dependencies = [
  "alloy",

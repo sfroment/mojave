@@ -10,9 +10,9 @@ use jsonrpsee::{
     server::{Server, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned, Params},
 };
-use mohave_chain_types::{
+use mojave_chain_types::{
+    alloy::primitives::{Address, B256, Bytes, U64, U256},
     network::{AnyRpcBlock, AnyRpcTransaction},
-    primitives::{Address, B256, Bytes, U64, U256},
     rpc::*,
 };
 use std::{marker::PhantomData, sync::Arc};
