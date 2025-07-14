@@ -3,11 +3,10 @@ use std::{future::IntoFuture, path::PathBuf, sync::Arc, time::Duration};
 use anyhow::Result;
 use clap::Subcommand;
 use ethrex::{
-    initializers::{
-        get_local_node_record, get_signer, init_blockchain, init_rollup_store, init_store,
-    },
+    initializers::{get_local_node_record, get_signer, init_blockchain, init_store},
     utils::{store_node_config_file, NodeConfigFile},
 };
+use ethrex_blockchain::BlockchainType;
 use ethrex_l2::SequencerConfig;
 use ethrex_p2p::network::peer_table;
 use ethrex_vm::EvmEngine;
@@ -16,8 +15,13 @@ use tokio::sync::Mutex;
 use tokio_util::task::TaskTracker;
 
 use crate::{
-    initializer::{get_local_p2p_node, init_metrics, init_network, init_rpc_api},
+    full_node_options::FullNodeOptions,
+    initializer::{
+        get_local_p2p_node, init_full_node_rpc_api, init_metrics, init_network, init_rollup_store,
+        init_sequencer_rpc_api,
+    },
     options::Options,
+    sequencer_options::SequencerOpts,
 };
 
 #[derive(Subcommand, Debug)]
@@ -26,18 +30,25 @@ pub enum Command {
     FullNode {
         #[command(flatten)]
         opts: Options,
+        #[command(flatten)]
+        full_node_opts: FullNodeOptions,
     },
     #[command(name = "sequencer", about = "Run a sequencer")]
     Sequencer {
         #[command(flatten)]
         opts: Options,
+        #[command(flatten)]
+        sequencer_opts: SequencerOpts,
     },
 }
 
 impl Command {
     pub async fn run(self) -> Result<()> {
         match self {
-            Command::FullNode { opts } => {
+            Command::FullNode {
+                opts,
+                full_node_opts,
+            } => {
                 if opts.evm == EvmEngine::REVM {
                     panic!("Mojave doesn't support REVM, use LEVM instead.");
                 }
@@ -49,7 +60,7 @@ impl Command {
                 let store = init_store(&data_dir, genesis).await;
                 let rollup_store = init_rollup_store(&rollup_store_dir).await;
 
-                let blockchain = init_blockchain(opts.evm, store.clone());
+                let blockchain = init_blockchain(opts.evm, store.clone(), BlockchainType::L2);
 
                 let signer = get_signer(&data_dir);
 
@@ -68,8 +79,9 @@ impl Command {
 
                 let cancel_token = tokio_util::sync::CancellationToken::new();
 
-                init_rpc_api(
+                init_full_node_rpc_api(
                     &opts,
+                    &full_node_opts,
                     peer_table.clone(),
                     local_p2p_node.clone(),
                     local_node_record.lock().await.clone(),
@@ -131,7 +143,86 @@ impl Command {
                     }
                 }
             }
-            Command::Sequencer { .. } => todo!(),
+            Command::Sequencer {
+                opts,
+                sequencer_opts,
+            } => {
+                if opts.evm == EvmEngine::REVM {
+                    panic!("Mojave doesn't support REVM, use LEVM instead.");
+                }
+
+                let data_dir = resolve_datadir(&opts.datadir);
+                let rollup_store_dir = data_dir.clone() + "/rollup_store";
+
+                let genesis = opts.network.get_genesis()?;
+                let store = init_store(&data_dir, genesis).await;
+                let rollup_store = init_rollup_store(&rollup_store_dir).await;
+
+                let blockchain = init_blockchain(opts.evm, store.clone(), BlockchainType::L2);
+
+                let signer = get_signer(&data_dir);
+
+                let local_p2p_node = get_local_p2p_node(&opts, &signer);
+
+                let local_node_record = Arc::new(Mutex::new(get_local_node_record(
+                    &data_dir,
+                    &local_p2p_node,
+                    &signer,
+                )));
+
+                let peer_table = peer_table(local_p2p_node.node_id());
+
+                // TODO: Check every module starts properly.
+                let tracker = TaskTracker::new();
+
+                let cancel_token = tokio_util::sync::CancellationToken::new();
+
+                init_sequencer_rpc_api(
+                    &opts,
+                    &sequencer_opts,
+                    peer_table.clone(),
+                    local_p2p_node.clone(),
+                    local_node_record.lock().await.clone(),
+                    store.clone(),
+                    blockchain.clone(),
+                    cancel_token.clone(),
+                    tracker.clone(),
+                    rollup_store.clone(),
+                )
+                .await;
+
+                // Initialize metrics if enabled
+                if opts.metrics_enabled {
+                    init_metrics(&opts, tracker.clone());
+                }
+
+                let l2_sequencer_cfg = SequencerConfig::from(opts.sequencer_opts);
+
+                let l2_sequencer = ethrex_l2::start_l2(
+                    store,
+                    rollup_store,
+                    blockchain,
+                    l2_sequencer_cfg,
+                    #[cfg(feature = "metrics")]
+                    format!("http://{}:{}", opts.http_addr, opts.http_port),
+                )
+                .into_future();
+
+                tracker.spawn(l2_sequencer);
+
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {
+                        tracing::info!("Server shut down started...");
+                        let node_config_path = PathBuf::from(data_dir + "/node_config.json");
+                        tracing::info!("Storing config at {:?}...", node_config_path);
+                        cancel_token.cancel();
+                        let node_config = NodeConfigFile::new(peer_table, local_node_record.lock().await.clone()).await;
+                        store_node_config_file(node_config, node_config_path).await;
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        tracing::info!("Server shutting down!");
+                    }
+                }
+            }
         }
         Ok(())
     }

@@ -20,7 +20,23 @@ node:
 		--block-producer.coinbase-address {{COINBASE_ADDRESS}} \
 		--committer.l1-private-key {{COMMITTER_L1_PRIVATE_KEY}} \
 		--l1.on-chain-proposer-address $(grep ETHREX_COMMITTER_ON_CHAIN_PROPOSER_ADDRESS .env | cut -d= -f2) \
+		--proof-coordinator.l1-private-key {{PROOF_COORDINATOR_L1_PRIVATE_KEY}} \
+		--sequencer.port 1739 \
+		--sequencer.host 127.0.0.1
+
+sequencer:
+	export $(cat .env | xargs)
+
+	cargo build --bin mojave
+
+	cargo run --bin mojave -- sequencer \
+		--network ./test_data/genesis.json \
+		--l1.bridge-address $(grep ETHREX_WATCHER_BRIDGE_ADDRESS .env | cut -d= -f2) \
+		--block-producer.coinbase-address {{COINBASE_ADDRESS}} \
+		--committer.l1-private-key {{COMMITTER_L1_PRIVATE_KEY}} \
+		--l1.on-chain-proposer-address $(grep ETHREX_COMMITTER_ON_CHAIN_PROPOSER_ADDRESS .env | cut -d= -f2) \
 		--proof-coordinator.l1-private-key {{PROOF_COORDINATOR_L1_PRIVATE_KEY}}
+
 
 # Fix some issues
 fix flags="":
@@ -43,6 +59,9 @@ fix flags="":
 	# cargo install taplo-cli --locked
 	taplo fmt
 
+upgrade-ethrex:
+	./cmd/update_ethrex_rev.sh
+
 # Upgrade any tooling
 upgrade:
 	# Update any patch versions
@@ -54,3 +73,17 @@ upgrade:
 # Build the packages
 build:
 	cargo build
+
+# Build and serve documentation
+doc:
+	cargo doc --open --no-deps
+
+# Watch and rebuild documentation on changes
+doc-watch:
+	cargo watch -x "doc --no-deps"
+
+docker-build:
+	docker build -t mojave .
+
+docker-run:
+	docker run -p 8545:8545 mojave

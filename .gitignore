@@ -21,3 +21,7 @@ lcov.info
 
 mojave/*
 jwt.hex
+
+Cargo.toml.bak
+
+.rules

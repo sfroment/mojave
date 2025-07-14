@@ -16,16 +16,20 @@ use ethrex_p2p::{
     sync_manager::SyncManager,
     types::{Node, NodeRecord},
 };
+use ethrex_rpc::EthClient;
 use ethrex_storage::Store;
-use ethrex_storage_rollup::StoreRollup;
+use ethrex_storage_rollup::{EngineTypeRollup, StoreRollup};
 use k256::ecdsa::SigningKey;
 use local_ip_address::local_ip;
+use mojave_networking::rpc::clients::mojave::Client;
 use tokio::sync::Mutex;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::{
+    full_node_options::FullNodeOptions,
     networks::{self, Network},
     options::Options,
+    sequencer_options::SequencerOpts,
 };
 
 pub fn get_bootnodes(opts: &Options, network: &Network, data_dir: &str) -> Vec<Node> {
@@ -168,6 +172,14 @@ pub fn get_http_socket_addr(opts: &Options) -> SocketAddr {
         .expect("Failed to parse http address and port")
 }
 
+pub fn get_sequencer_socket_addr(full_node_opts: &FullNodeOptions) -> SocketAddr {
+    parse_socket_addr(
+        &full_node_opts.sequencer_host,
+        &full_node_opts.sequencer_port.to_string(),
+    )
+    .expect("Failed to parse full node address and port")
+}
+
 pub fn get_valid_delegation_addresses(opts: &Options) -> Vec<Address> {
     let Some(ref path) = opts.sponsorable_addresses_file_path else {
         tracing::warn!("No valid addresses provided, ethrex_SendTransaction will always fail");
@@ -187,8 +199,9 @@ pub fn get_valid_delegation_addresses(opts: &Options) -> Vec<Address> {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn init_rpc_api(
+pub async fn init_full_node_rpc_api(
     opts: &Options,
+    full_node_opts: &FullNodeOptions,
     peer_table: Arc<Mutex<KademliaTable>>,
     local_p2p_node: Node,
     local_node_record: NodeRecord,
@@ -210,21 +223,111 @@ pub async fn init_rpc_api(
     )
     .await;
 
-    let rpc_api = ethrex_rpc::start_api(
-        get_http_socket_addr(opts),
-        get_authrpc_socket_addr(opts),
+    let http_addr = get_http_socket_addr(opts);
+    let sequencer_addr = get_sequencer_socket_addr(full_node_opts);
+    let authrpc_addr = get_authrpc_socket_addr(opts);
+    let jwt_secret = read_jwtsecret_file(&opts.authrpc_jwtsecret);
+    let client_version = get_client_version();
+
+    let url = format!("http://{sequencer_addr}");
+    // Create MojaveClient
+    let mojave_client = Client::new(vec![&url]).expect("unable to init sync client");
+    // Create EthClient
+    let eth_client = EthClient::new(&url).expect("unable to init eth client");
+
+    let rpc_api = mojave_networking::rpc::full_node::start_api(
+        http_addr,
+        authrpc_addr,
         store,
         blockchain,
-        read_jwtsecret_file(&opts.authrpc_jwtsecret),
+        jwt_secret,
         local_p2p_node,
         local_node_record,
         syncer,
         peer_handler,
-        get_client_version(),
-        get_valid_delegation_addresses(opts),
-        opts.sponsor_private_key,
+        client_version,
         rollup_store,
+        mojave_client,
+        eth_client,
     );
 
     tracker.spawn(rpc_api);
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn init_sequencer_rpc_api(
+    opts: &Options,
+    sequencer_opts: &SequencerOpts,
+    peer_table: Arc<Mutex<KademliaTable>>,
+    local_p2p_node: Node,
+    local_node_record: NodeRecord,
+    store: Store,
+    blockchain: Arc<Blockchain>,
+    cancel_token: CancellationToken,
+    tracker: TaskTracker,
+    rollup_store: StoreRollup,
+) {
+    let peer_handler = PeerHandler::new(peer_table);
+
+    // Create SyncManager
+    let syncer = SyncManager::new(
+        peer_handler.clone(),
+        opts.syncmode.clone(),
+        cancel_token,
+        blockchain.clone(),
+        store.clone(),
+    )
+    .await;
+
+    let http_addr = get_http_socket_addr(opts);
+    let authrpc_addr = get_authrpc_socket_addr(opts);
+    let jwt_secret = read_jwtsecret_file(&opts.authrpc_jwtsecret);
+    let client_version = get_client_version();
+
+    // Create MojaveClient
+    let addrs: Vec<String> = sequencer_opts
+        .full_node_addresses
+        .iter()
+        .map(|addr| format!("http://{addr}"))
+        .collect();
+    let addrs = addrs.iter().map(|addr| addr.as_str()).collect();
+    let mojave_client = Client::new(addrs).expect("unable to init sync client");
+
+    let rpc_api = mojave_networking::rpc::sequencer::start_api(
+        http_addr,
+        authrpc_addr,
+        store,
+        blockchain,
+        jwt_secret,
+        local_p2p_node,
+        local_node_record,
+        syncer,
+        peer_handler,
+        client_version,
+        rollup_store,
+        mojave_client,
+    );
+
+    tracker.spawn(rpc_api);
+}
+
+pub async fn init_rollup_store(data_dir: &str) -> StoreRollup {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sql")] {
+            let engine_type = EngineTypeRollup::SQL;
+        } else if #[cfg(feature = "redb")] {
+            let engine_type = EngineTypeRollup::RedB;
+        } else if #[cfg(feature = "libmdbx")] {
+            let engine_type = EngineTypeRollup::Libmdbx;
+        } else {
+            let engine_type = EngineTypeRollup::InMemory;
+        }
+    }
+    let rollup_store =
+        StoreRollup::new(data_dir, engine_type).expect("Failed to create StoreRollup");
+    rollup_store
+        .init()
+        .await
+        .expect("Failed to init rollup store");
+    rollup_store
 }
