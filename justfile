@@ -10,10 +10,9 @@ default:
 	just --list
 
 node:
-	export $(cat .env | xargs)
-
 	cargo build --bin mojave
-
+	
+	export $(cat .env | xargs) && \
 	cargo run --bin mojave -- full-node \
 		--network ./test_data/genesis.json \
 		--l1.bridge-address $(grep ETHREX_WATCHER_BRIDGE_ADDRESS .env | cut -d= -f2) \
@@ -25,10 +24,9 @@ node:
 		--sequencer.host 127.0.0.1
 
 sequencer:
-	export $(cat .env | xargs)
-
 	cargo build --bin mojave
-
+	
+	export $(cat .env | xargs) && \
 	cargo run --bin mojave -- sequencer \
 		--network ./test_data/genesis.json \
 		--l1.bridge-address $(grep ETHREX_WATCHER_BRIDGE_ADDRESS .env | cut -d= -f2) \
@@ -39,10 +37,8 @@ sequencer:
 
 
 generate-key-pair:
-	export $(cat .env | xargs)
-
 	cargo build --bin mojave
-
+	export $(cat .env | xargs) && \
 	cargo run --features generate-key-pair --bin mojave generate-key-pair
 
 # Fix some issues
