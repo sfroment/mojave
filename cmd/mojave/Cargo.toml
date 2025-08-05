@@ -7,10 +7,6 @@ edition = "2021"
 name = "mojave"
 path = "./lib.rs"
 
-[[bin]]
-name = "mojave"
-path = "./mojave.rs"
-
 [features]
 default = []
 metrics = ["ethrex-blockchain/metrics", "ethrex-l2/metrics", "ethrex/metrics"]
