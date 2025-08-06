@@ -6,4 +6,6 @@ pub enum SignatureError {
     #[cfg(feature = "ed25519")]
     #[error("{0}")]
     Eddsa(#[from] crate::eddsa::Error),
+    #[error("secp256k1 signature verification failed")]
+    Secp256k1(#[from] secp256k1::Error),
 }
