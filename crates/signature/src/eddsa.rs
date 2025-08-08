@@ -13,6 +13,7 @@ impl FromStr for SigningKey {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.strip_prefix("0x").unwrap_or(s);
         let bytes = hex::decode(s).map_err(|error| Error::CreateSigningKey(error.into()))?;
         let secret_key = PrivateKey::try_from(bytes.as_slice())
             .map_err(|error| Error::CreateSigningKey(error.into()))?;
@@ -95,9 +96,10 @@ impl crate::Verifier for VerifyingKey {
         let signature = EddsaSignature::from_slice(&signature.bytes)
             .map_err(|error| Error::Verify(error.into()))?;
 
-        self.0
-            .verify(&message_bytes, &signature)
-            .map_err(|e| e.into())
+        match self.0.verify(&message_bytes, &signature) {
+            Ok(()) => Ok(()),
+            Err(error) => Err(Error::Verify(ErrorKind::Ed25519(error)).into()),
+        }
     }
 }
 
@@ -170,13 +172,72 @@ mod tests {
 
         let pub_key = String::from(verifying_key);
 
-        print!("expected: {expected_pub_key:?}\ncalculated: {pub_key:?}",);
+        println!("expected: {expected_pub_key:?}\ncalculated: {pub_key:?}",);
+        assert_eq!(expected_pub_key, pub_key);
+    }
+
+    #[test]
+    fn test_ed25519_get_public_key_from_private_key_hex() {
+        let private_key_hex = hex::encode(PRIVATE_KEY);
+
+        let signing_key = SigningKey::from_str(&private_key_hex).unwrap();
+        let verifying_key = signing_key.verifying_key();
+        let expected_pub_key: String = hex::encode(PUBLIC_KEY);
+
+        let pub_key = String::from(verifying_key);
+
+        println!("expected: {expected_pub_key:?}\ncalculated: {pub_key:?}",);
+        assert_eq!(expected_pub_key, pub_key);
+    }
+
+    #[test]
+    fn test_ed25519_get_public_key_from_private_key_hex_0x_prefix() {
+        let private_key_hex = hex::encode(PRIVATE_KEY);
+        let private_key_hex = format!("0x{private_key_hex}");
+
+        let signing_key = SigningKey::from_str(&private_key_hex).unwrap();
+
+        let verifying_key = signing_key.verifying_key();
+        let expected_pub_key: String = hex::encode(PUBLIC_KEY);
+
+        let pub_key = String::from(verifying_key);
+
+        println!("expected: {expected_pub_key:?}\ncalculated: {pub_key:?}",);
         assert_eq!(expected_pub_key, pub_key);
     }
 
     #[test]
     fn test_ed25519_sign_and_verify() {
         let signing_key = SigningKey::from_slice(&PRIVATE_KEY).unwrap();
+
+        let verifying_key = signing_key.verifying_key();
+        let msg = b"Hello World";
+
+        let signature = signing_key.sign(msg).unwrap();
+        let res = verifying_key.verify(msg, &signature);
+
+        assert!(res.is_ok())
+    }
+
+    #[test]
+    fn test_ed25519_sign_and_verify_with_hex() {
+        let private_key_hex = hex::encode(PRIVATE_KEY);
+        let signing_key = SigningKey::from_str(&private_key_hex).unwrap();
+
+        let verifying_key = signing_key.verifying_key();
+        let msg = b"Hello World";
+
+        let signature = signing_key.sign(msg).unwrap();
+        let res = verifying_key.verify(msg, &signature);
+
+        assert!(res.is_ok())
+    }
+
+    #[test]
+    fn test_ed25519_sign_and_verify_with_hex_0x_prefix() {
+        let private_key_hex = hex::encode(PRIVATE_KEY);
+        let private_key_hex = format!("0x{private_key_hex}");
+        let signing_key = SigningKey::from_str(&private_key_hex).unwrap();
 
         let verifying_key = signing_key.verifying_key();
         let msg = b"Hello World";
@@ -271,14 +332,13 @@ mod tests {
         let result = verifying_key.verify(msg, &invalid_signature_long);
         assert!(result.is_err());
 
-        // Test with invalid signature content (all zeros) - Ed25519 returns Ok(false)
+        // Test with invalid signature content (all zeros)
         let invalid_signature_zeros = Signature {
             bytes: vec![0u8; 64], // All zeros - invalid signature
             scheme: SignatureScheme::Ed25519,
         };
         let result = verifying_key.verify(msg, &invalid_signature_zeros);
-        // Ed25519 returns Ok(false) for invalid signatures that parse correctly
-        assert!(result.is_err());
+        assert!(result.is_err()); // Signature parses, but is invalid -> verify returns Err
     }
 
     #[test]
@@ -293,7 +353,7 @@ mod tests {
 
         // Verification should fail with modified message
         let result = verifying_key.verify(modified_msg, &signature);
-        assert!(result.is_err());
+        assert!(result.is_err()); // Invalid signature for this message
     }
 
     #[test]
@@ -309,7 +369,7 @@ mod tests {
 
         // Verification should fail with corrupted signature
         let result = verifying_key.verify(msg, &signature);
-        assert!(result.is_err());
+        assert!(result.is_err()); // Should now return Err for bad signature
     }
 
     #[test]

@@ -19,8 +19,15 @@ impl FromStr for SigningKey {
     type Err = SignatureError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let private_key =
-            PrivateKey::from_str(s).map_err(|error| Error::CreateSigningKey(error.into()))?;
+        let private_key = PrivateKey::from_str(s).or_else(|_| {
+            let s = s.strip_prefix("0x").unwrap_or(s);
+
+            let bytes = hex::decode(s)
+                .map_err(|error| Error::CreateSigningKey(ErrorKind::InvalidHex(error)))?;
+
+            PrivateKey::from_slice(&bytes)
+                .map_err(|error| Error::CreateSigningKey(ErrorKind::Secp256k1(error)))
+        })?;
         Ok(Self(private_key))
     }
 }
@@ -146,6 +153,8 @@ pub enum ErrorKind {
     Secp256k1(#[from] secp256k1::Error),
     #[error("{0}")]
     Bincode(#[from] bincode::Error),
+    #[error("{0}")]
+    InvalidHex(hex::FromHexError),
 }
 
 #[cfg(test)]
@@ -158,6 +167,8 @@ mod test {
     /// address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
     /// private_key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
     const ANVIL_ACC0_KEY: &str = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+    const ANVIL_ACC0_KEY_0XPREFIX: &str =
+        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
     #[test]
     fn test_secp256k1_address_from_anvil_acc0_pk() {
@@ -169,7 +180,20 @@ mod test {
             address.to_lowercase(),
             "f39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_lowercase()
         );
-        print!("address expected  : \"f39Fd6e51aad88F6F4ce6aB8827279cffFb92266\"\naddress calculated: {address:?}");
+        println!("address expected  : \"f39Fd6e51aad88F6F4ce6aB8827279cffFb92266\"\naddress calculated: {address:?}");
+    }
+
+    #[test]
+    fn test_secp256k1_address_from_anvil_acc0_pk_with_prefix() {
+        let signing_key = SigningKey::from_str(ANVIL_ACC0_KEY_0XPREFIX).unwrap();
+        let verifying_key = signing_key.verifying_key();
+
+        let address = verifying_key.to_address();
+        assert_eq!(
+            address.to_lowercase(),
+            "f39Fd6e51aad88F6F4ce6aB8827279cffFb92266".to_lowercase()
+        );
+        println!("address expected  : \"f39Fd6e51aad88F6F4ce6aB8827279cffFb92266\"\naddress calculated: {address:?}");
     }
 
     #[test]
