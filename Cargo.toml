@@ -1,12 +1,15 @@
 [workspace]
 members = [
-  "crates/client",
-  "crates/full-node",
+  "cmd/mojave",
+  "crates/block-builder",
+  # "crates/full-node",
+  "crates/networking",
+  "crates/syncer",
+  # "crates/sequencer",
+  "crates/utils",
   "crates/prover",
   "crates/proof-coordinator",
-  "crates/sequencer",
   "crates/signature",
-  "crates/utils",
 ]
 resolver = "2"
 
@@ -28,6 +31,8 @@ ethrex-storage = { git = "https://github.com/1sixtech/ethrex", rev = "d62fcc5acc
 ethrex-prover = { git = "https://github.com/1sixtech/ethrex", rev = "d62fcc5accaaa13b9909af04071379219dc6a0b1" }
 
 # mojave
+mojave-block-builder = { path = "crates/block-builder" }
+mojave-prover = { path = "crates/prover", features = ["client","server"]}
 mojave-chain-utils = { path = "crates/utils" }
 mojave-client = { path = "crates/client" }
 mojave-full-node = { path = "crates/full-node" }
