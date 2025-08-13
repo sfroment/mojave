@@ -5,7 +5,13 @@ pub mod types;
 use crate::rpc::{
     block::SendBroadcastBlockRequest, transaction::SendRawTransactionRequest, types::OrderedBlock,
 };
-use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
+use axum::{
+    Json, Router,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
+    routing::post,
+};
 use ethrex_blockchain::Blockchain;
 use ethrex_common::Bytes;
 use ethrex_p2p::{
@@ -29,8 +35,11 @@ use std::{
     time::Duration,
 };
 use tokio::{net::TcpListener, sync::Mutex as TokioMutex};
-use tower_http::cors::CorsLayer;
-use tracing::info;
+use tower_http::{
+    cors::CorsLayer,
+    trace::{DefaultOnEos, DefaultOnFailure, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+};
+use tracing::{Level, Span, info};
 
 pub const FILTER_DURATION: Duration = {
     if cfg!(test) {
@@ -106,6 +115,15 @@ pub async fn start_api(
     let http_router = Router::new()
         .route("/", post(handle_http_request))
         .layer(cors)
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(|req: &Request<Body>, _span: &Span| {
+                    tracing::info!("started {} {}", req.method(), req.uri().path())
+                })
+                .on_response(DefaultOnResponse::new().level(Level::INFO))
+                .on_failure(DefaultOnFailure::new().level(Level::INFO))
+                .on_eos(DefaultOnEos::new().level(Level::INFO)),
+        )
         .with_state(context.clone());
     let http_listener = TcpListener::bind(http_addr)
         .await
@@ -117,8 +135,43 @@ pub async fn start_api(
 
     info!("Not starting Auth-RPC server. The address passed as argument is {authrpc_addr}");
 
+    tokio::task::spawn(async move {
+        tracing::info!("Starting block processing loop");
+        loop {
+            let block = context.block_queue.pop_wait().await;
+            let added_block = context.l1_context.blockchain.add_block(&block.0).await;
+            if let Err(added_block) = added_block {
+                tracing::error!(error= %added_block, "failed to add block to blockchain");
+                continue;
+            }
+            let update_block_number = context
+                .l1_context
+                .storage
+                .update_earliest_block_number(block.0.header.number)
+                .await;
+            if let Err(update_block_number) = update_block_number {
+                tracing::error!(error = %update_block_number, "failed to update earliest block number");
+            }
+            let forkchoice_context = context
+                .l1_context
+                .storage
+                .forkchoice_update(
+                    None,
+                    block.0.header.number,
+                    block.0.header.hash(),
+                    None,
+                    None,
+                )
+                .await;
+            if let Err(forkchoice_context) = forkchoice_context {
+                tracing::error!(error = %forkchoice_context, "failed to update forkchoice");
+            }
+        }
+    });
+
     let _ =
         tokio::try_join!(http_server).inspect_err(|e| info!("Error shutting down servers: {e:?}"));
+
     Ok(())
 }
 

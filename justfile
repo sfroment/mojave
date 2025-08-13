@@ -9,7 +9,10 @@ default:
 build-mojave:
 	cargo build --release
 
-node:
+clean:
+	rm -rf mojave-full-node mojave-sequencer
+
+node: clean
     export $(cat .env | xargs) && \
     cargo run --release --bin mojave-full-node init \
         --network ./test_data/genesis.json \
