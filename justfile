@@ -12,7 +12,9 @@ build-mojave:
 clean:
 	rm -rf mojave-full-node mojave-sequencer
 
-full: clean node sequencer
+# Run both node and sequencer in parallel, with sequencer waiting for node
+full: clean
+	./start.sh
 
 node:
     export $(cat .env | xargs) && \
@@ -27,7 +29,8 @@ sequencer:
         --network ./test_data/genesis.json \
         --http.port 1739 \
         --full_node.addresses http://0.0.0.0:8545 \
-        --datadir {{current-dir}}/mojave-sequencer
+        --datadir {{current-dir}}/mojave-sequencer \
+        --private_key 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 generate-key-pair:
 	cargo build --bin mojave
