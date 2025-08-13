@@ -2,10 +2,7 @@ use crate::rpc::{RpcApiContext, types::OrderedBlock};
 use ethrex_common::types::{Block, BlockBody, Transaction};
 use ethrex_rpc::{
     RpcErr,
-    types::{
-        block::{BlockBodyWrapper, RpcBlock},
-        block_identifier::BlockIdentifier,
-    },
+    types::{block::RpcBlock, block_identifier::BlockIdentifier},
     utils::RpcRequest,
 };
 use mojave_client::types::SignedBlock;

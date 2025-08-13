@@ -31,7 +31,7 @@ use std::{
 use tokio::{net::TcpListener, sync::Mutex as TokioMutex, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 use tower_http::cors::CorsLayer;
-use tracing::{Level, Span, info};
+use tracing::info;
 
 pub const FILTER_DURATION: Duration = {
     if cfg!(test) {
